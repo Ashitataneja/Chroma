@@ -21,7 +21,7 @@
 
   .color {
     width: 100%;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 1/1;
     cursor: pointer;
     transition: transform 0.15s ease;
   }
@@ -31,12 +31,11 @@
     z-index: 2;
   }
 
-  /* PANEL */
   #panel {
     position: fixed;
-    right: -340px;
+    right: -360px;
     top: 0;
-    width: 340px;
+    width: 360px;
     height: 100%;
     background: white;
     box-shadow: -10px 0 30px rgba(0,0,0,0.1);
@@ -54,7 +53,7 @@
     top: 10px;
     right: 10px;
     border: none;
-    background: #f0f0f0;
+    background: #eee;
     border-radius: 50%;
     width: 30px;
     height: 30px;
@@ -65,36 +64,42 @@
     width: 100%;
     height: 140px;
     border-radius: 12px;
-    margin-bottom: 16px;
-  }
-
-  #hex, #hsl {
-    font-size: 14px;
-    margin: 6px 0;
-  }
-
-  label {
-    font-size: 12px;
-    margin-top: 10px;
-    display: block;
+    margin-bottom: 12px;
   }
 
   input[type="range"] {
     width: 100%;
   }
 
-  #mood {
-    margin-top: 20px;
+  #gallery {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
   }
 
-  #description {
-    font-size: 13px;
-    margin-bottom: 10px;
+  #gallery img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
   }
 
-  #keywords {
-    padding-left: 18px;
-    font-size: 13px;
+  video, canvas {
+    width: 100%;
+    margin-top: 10px;
+    border-radius: 10px;
+  }
+
+  button, a {
+    margin-top: 10px;
+    width: 100%;
+    padding: 8px;
+    background: black;
+    color: white;
+    border: none;
+    text-align: center;
+    cursor: pointer;
+    display: block;
   }
 </style>
 </head>
@@ -119,11 +124,18 @@
   <label>Lightness</label>
   <input type="range" id="light" min="0" max="100">
 
-  <div id="mood">
-    <h3>Mood</h3>
-    <p id="description"></p>
-    <ul id="keywords"></ul>
-  </div>
+  <h3>Mood</h3>
+  <p id="description"></p>
+  <ul id="keywords"></ul>
+
+  <h3>Inspiration</h3>
+  <div id="gallery"></div>
+
+  <h3>Camera</h3>
+  <video id="video" autoplay playsinline></video>
+  <button id="capture">Capture</button>
+  <canvas id="canvas"></canvas>
+  <a id="download" download="chroma.png">Download</a>
 </div>
 
 <script src="script.js"></script>
