@@ -91,6 +91,7 @@ function renderColors(){
 
     div.addEventListener("click",()=>{
       let hsl=hexToHSL(color);
+
       currentH=hsl.h;
       currentS=hsl.s;
       currentL=hsl.l;
@@ -117,7 +118,7 @@ function updateColor(){
   hslText.textContent=`HSL: ${currentH}, ${currentS}%, ${currentL}%`;
 }
 
-// Mood + Images
+// Mood
 function generateMood(){
   let mood;
 
@@ -142,28 +143,36 @@ function generateMood(){
   loadImages();
 }
 
-// Image gallery
+// Images
 function loadImages(){
   gallery.innerHTML="";
   for(let i=0;i<6;i++){
     let img=document.createElement("img");
-    img.src=`https://source.unsplash.com/200x200/?color,aesthetic&sig=${Math.random()}`;
+    img.src=`https://source.unsplash.com/200x200/?aesthetic,color&sig=${Math.random()}`;
     gallery.appendChild(img);
   }
 }
 
 // Sliders
-[hueSlider,satSlider,lightSlider].forEach(()=>{
-  hueSlider.addEventListener("input",()=>{currentH=hueSlider.value;updateColor();});
-  satSlider.addEventListener("input",()=>{currentS=satSlider.value;updateColor();});
-  lightSlider.addEventListener("input",()=>{currentL=lightSlider.value;updateColor();});
-});
+hueSlider.addEventListener("input",()=>{currentH=hueSlider.value;updateColor();});
+satSlider.addEventListener("input",()=>{currentS=satSlider.value;updateColor();});
+lightSlider.addEventListener("input",()=>{currentL=lightSlider.value;updateColor();});
 
-// Camera
-navigator.mediaDevices.getUserMedia({video:true})
-.then(stream=>video.srcObject=stream);
+// SAFE CAMERA (FIXED)
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      video.srcObject = stream;
+    })
+    .catch(() => {
+      console.log("Camera permission denied");
+    });
+}
 
+// Capture
 captureBtn.addEventListener("click",()=>{
+  if(!video.videoWidth) return;
+
   const ctx=canvas.getContext("2d");
   canvas.width=video.videoWidth;
   canvas.height=video.videoHeight;
