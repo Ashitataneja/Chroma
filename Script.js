@@ -8,9 +8,6 @@ const hueSlider = document.getElementById("hue");
 const satSlider = document.getElementById("sat");
 const lightSlider = document.getElementById("light");
 
-const description = document.getElementById("description");
-const keywordsList = document.getElementById("keywords");
-
 let currentH = 0;
 let currentS = 0;
 let currentL = 0;
@@ -108,8 +105,6 @@ function renderColors() {
 
       updateColor();
       panel.classList.add("active");
-
-      generateMood();
     });
 
     grid.appendChild(div);
@@ -123,37 +118,6 @@ function updateColor() {
   preview.style.background = hex;
   hexText.textContent = "HEX: " + hex;
   hslText.textContent = `HSL: ${currentH}, ${currentS}%, ${currentL}%`;
-}
-
-// AI call
-async function generateMood() {
-  const hex = hslToHex(currentH, currentS, currentL);
-
-  description.textContent = "Generating...";
-  keywordsList.innerHTML = "";
-
-  try {
-    const res = await fetch("/api/mood", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ hex, h: currentH, s: currentS, l: currentL })
-    });
-
-    const data = await res.json();
-
-    description.textContent = data.description;
-
-    data.keywords.forEach(k => {
-      const li = document.createElement("li");
-      li.textContent = k;
-      keywordsList.appendChild(li);
-    });
-
-  } catch {
-    description.textContent = "AI failed 😢";
-  }
 }
 
 // Sliders
