@@ -8,6 +8,14 @@ const hueSlider = document.getElementById("hue");
 const satSlider = document.getElementById("sat");
 const lightSlider = document.getElementById("light");
 
+const description = document.getElementById("description");
+const keywordsList = document.getElementById("keywords");
+
+// CLOSE BUTTON
+document.getElementById("closePanel").addEventListener("click", () => {
+  panel.classList.remove("active");
+});
+
 let currentH = 0;
 let currentS = 0;
 let currentL = 0;
@@ -68,7 +76,7 @@ function hexToHSL(hex) {
   };
 }
 
-// Generate colors
+// GENERATE COLORS
 let colorSet = new Set();
 
 for (let h = 0; h < 360; h += 2) {
@@ -82,7 +90,7 @@ for (let h = 0; h < 360; h += 2) {
 let colors = Array.from(colorSet);
 colors.sort(() => Math.random() - 0.5);
 
-// Render grid
+// RENDER GRID
 function renderColors() {
   grid.innerHTML = "";
 
@@ -91,10 +99,9 @@ function renderColors() {
     div.className = "color";
     div.style.background = color;
 
-    div.addEventListener("click", (e) => {
-      e.stopPropagation();
-
+    div.addEventListener("click", () => {
       let hsl = hexToHSL(color);
+
       currentH = hsl.h;
       currentS = hsl.s;
       currentL = hsl.l;
@@ -105,13 +112,15 @@ function renderColors() {
 
       updateColor();
       panel.classList.add("active");
+
+      generateMood();
     });
 
     grid.appendChild(div);
   });
 }
 
-// Update UI
+// UPDATE UI
 function updateColor() {
   const hex = hslToHex(currentH, currentS, currentL);
 
@@ -120,7 +129,36 @@ function updateColor() {
   hslText.textContent = `HSL: ${currentH}, ${currentS}%, ${currentL}%`;
 }
 
-// Sliders
+// FAKE AI MOOD
+function generateMood() {
+  const moods = [
+    {
+      description: "A calm and minimal tone, evoking quiet confidence.",
+      keywords: ["calm", "minimal", "soft", "clean", "modern"]
+    },
+    {
+      description: "Bold and energetic, full of movement and intensity.",
+      keywords: ["bold", "vibrant", "energy", "dynamic", "loud"]
+    },
+    {
+      description: "Warm and inviting, like soft evening sunlight.",
+      keywords: ["warm", "cozy", "sunset", "soft", "comfort"]
+    }
+  ];
+
+  const random = moods[Math.floor(Math.random() * moods.length)];
+
+  description.textContent = random.description;
+  keywordsList.innerHTML = "";
+
+  random.keywords.forEach(k => {
+    const li = document.createElement("li");
+    li.textContent = k;
+    keywordsList.appendChild(li);
+  });
+}
+
+// SLIDERS
 [hueSlider, satSlider, lightSlider].forEach(() => {
   hueSlider.addEventListener("input", () => {
     currentH = hueSlider.value;
@@ -138,11 +176,5 @@ function updateColor() {
   });
 });
 
-// Close panel
-document.addEventListener("click", (e) => {
-  if (!panel.contains(e.target)) {
-    panel.classList.remove("active");
-  }
-});
-
+// INIT
 renderColors();
