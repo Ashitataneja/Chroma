@@ -7,13 +7,18 @@
 <style>
 body { margin:0; font-family:-apple-system; background:#111; }
 
-/* GRID */
+/* GRID FIXED */
 #grid {
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(18px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(30px,1fr));
+  gap:0;
   height:100vh;
 }
-.color { aspect-ratio:1; cursor:pointer; }
+.color {
+  width:100%;
+  height:100%;
+  cursor:pointer;
+}
 
 /* PANEL */
 #panel {
@@ -30,23 +35,18 @@ body { margin:0; font-family:-apple-system; background:#111; }
 
 #content { flex:1; overflow:auto; padding:20px; }
 
-#topBar {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:10px;
-}
-#back {
-  font-size:18px;
-  cursor:pointer;
+#back { font-size:20px; cursor:pointer; margin-bottom:10px; }
+
+#preview {
+  height:120px;
+  border-radius:10px;
 }
 
-#preview { height:120px; border-radius:10px; }
-
-label { font-size:12px; display:block; margin-top:10px; }
-
+/* SLIDERS */
+label { font-size:12px; margin-top:10px; display:block; }
 input { width:100%; }
 
+/* GALLERY */
 #gallery {
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -54,7 +54,7 @@ input { width:100%; }
   margin-top:10px;
 }
 #gallery img {
-  width:100%; height:70px;
+  width:100%; height:80px;
   object-fit:cover;
   border-radius:6px;
   cursor:pointer;
@@ -71,7 +71,7 @@ input { width:100%; }
   border-radius:8px;
 }
 
-/* CAMERA MODAL */
+/* CAMERA */
 #overlay {
   position:fixed;
   inset:0;
@@ -83,7 +83,7 @@ input { width:100%; }
 #overlay.active { display:flex; }
 
 #modal {
-  width:90%;
+  width:95%;
   max-width:420px;
   background:black;
   border-radius:12px;
@@ -93,53 +93,33 @@ input { width:100%; }
 
 video, canvas {
   width:100%;
-  height:300px;
+  height:320px;
   object-fit:cover;
 }
 
-#closeCam {
-  position:absolute;
-  top:10px;
-  right:10px;
-  background:white;
-  border:none;
-  border-radius:50%;
-  width:30px;
-  height:30px;
-}
-
-/* FILTER STRIP */
-#filters {
+/* TOP IMAGE STRIP */
+#camGallery {
   display:flex;
   overflow-x:auto;
   gap:8px;
-  padding:10px;
-  background:#000;
+  padding:8px;
+  background:black;
 }
-
-.filterCircle {
-  width:50px;
-  height:50px;
-  border-radius:50%;
-  flex-shrink:0;
-  border:2px solid white;
+#camGallery img {
+  width:60px;
+  height:60px;
+  border-radius:8px;
+  object-fit:cover;
   cursor:pointer;
 }
 
-.filterImg {
-  width:50px;
-  height:50px;
-  border-radius:50%;
-  object-fit:cover;
-  border:2px solid white;
+/* COLOR BAR */
+#colorBar {
+  width:100%;
+  height:20px;
+  background:linear-gradient(to right, red, yellow, green, cyan, blue, magenta, red);
 }
-
-/* CAMERA COLOR SLIDER */
-#cameraControls {
-  padding:10px;
-  background:#000;
-}
-#cameraControls input {
+#camHue {
   width:100%;
 }
 
@@ -156,6 +136,17 @@ video, canvas {
   background:white;
   border-radius:6px;
 }
+
+#closeCam {
+  position:absolute;
+  top:10px;
+  right:10px;
+  background:white;
+  border:none;
+  border-radius:50%;
+  width:30px;
+  height:30px;
+}
 </style>
 </head>
 
@@ -165,10 +156,7 @@ video, canvas {
 
 <div id="panel">
   <div id="content">
-
-    <div id="topBar">
-      <div id="back">←</div>
-    </div>
+    <div id="back">←</div>
 
     <div id="preview"></div>
 
@@ -199,14 +187,14 @@ video, canvas {
 
     <button id="closeCam">✕</button>
 
-    <div id="filters"></div>
+    <!-- IMAGE STRIP -->
+    <div id="camGallery"></div>
 
-    <div id="cameraControls">
-      <input type="range" id="camHue" min="0" max="360">
-    </div>
+    <!-- COLOR BAR -->
+    <div id="colorBar"></div>
+    <input type="range" id="camHue" min="0" max="360">
 
     <div id="controls">
-      <button id="capture">Capture</button>
       <button id="download">Download</button>
     </div>
 
