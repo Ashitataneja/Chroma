@@ -1,154 +1,125 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>Chroma</title>
 
 <style>
-body {
-  margin: 0;
-  font-family: -apple-system, sans-serif;
-  background: #111;
-}
+body { margin:0; font-family:-apple-system; background:#111; }
 
 /* GRID */
 #grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18px, 1fr));
-  height: 100vh;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(18px,1fr));
+  height:100vh;
 }
-
-.color {
-  aspect-ratio: 1;
-  cursor: pointer;
-}
+.color { aspect-ratio:1; cursor:pointer; }
 
 /* PANEL */
 #panel {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 360px;
-  height: 100%;
-  background: white;
-  transform: translateX(100%);
-  transition: 0.3s ease;
-  display: flex;
-  flex-direction: column;
+  position:fixed;
+  right:0; top:0;
+  width:360px; height:100%;
+  background:#fff;
+  transform:translateX(100%);
+  transition:.3s;
+  display:flex;
+  flex-direction:column;
 }
+#panel.active { transform:translateX(0); }
 
-#panel.active {
-  transform: translateX(0);
-}
+#content { flex:1; overflow:auto; padding:20px; }
 
-#panelContent {
-  padding: 20px;
-  overflow-y: auto;
-  flex: 1;
-}
+#preview { height:120px; border-radius:10px; margin-bottom:10px; }
 
-#close {
-  position: absolute;
-  right: 15px;
-  top: 15px;
-  border: none;
-  background: #eee;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  cursor: pointer;
-}
+label { font-size:12px; margin-top:10px; display:block; }
 
-#preview {
-  height: 120px;
-  border-radius: 10px;
-  margin-bottom: 10px;
-}
+input { width:100%; }
 
-/* SLIDERS */
-label {
-  font-size: 12px;
-  margin-top: 10px;
-  display: block;
-}
-
-input[type="range"] {
-  width: 100%;
-}
-
-/* GALLERY */
 #gallery {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 10px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+  margin-top:10px;
 }
-
 #gallery img {
-  width: 100%;
-  height: 70px;
-  object-fit: cover;
-  border-radius: 6px;
-  cursor: pointer;
+  width:100%; height:70px;
+  object-fit:cover;
+  border-radius:6px;
+  cursor:pointer;
 }
 
-/* CTA */
-#bottomBar {
-  padding: 15px;
-  border-top: 1px solid #eee;
+/* BOTTOM CTA */
+#bottom {
+  padding:15px;
+  border-top:1px solid #eee;
 }
-
 #captureMood {
-  width: 100%;
-  padding: 12px;
-  background: black;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  width:100%;
+  padding:12px;
+  background:black;
+  color:white;
+  border:none;
+  border-radius:8px;
 }
 
-/* MODAL CAMERA */
+/* MODAL */
 #overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  display: none;
-  align-items: center;
-  justify-content: center;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.8);
+  display:none;
 }
-
-#overlay.active {
-  display: flex;
-}
+#overlay.active { display:block; }
 
 #modal {
-  width: 90%;
-  max-width: 500px;
-  background: black;
-  border-radius: 12px;
-  overflow: hidden;
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
 }
 
-video, canvas {
-  width: 100%;
-  height: 300px;
-  object-fit: cover;
+video {
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
-#modalControls {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
+canvas {
+  position:absolute;
+  inset:0;
 }
 
-#modalControls button {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  background: white;
-  cursor: pointer;
-  border-radius: 6px;
+#ui {
+  position:absolute;
+  bottom:0;
+  width:100%;
+  padding:10px;
+  background:linear-gradient(transparent, rgba(0,0,0,0.7));
+}
+
+#controls {
+  display:flex;
+  gap:8px;
+}
+
+#controls button {
+  flex:1;
+  padding:10px;
+  border:none;
+  background:white;
+  border-radius:6px;
+}
+
+#closeCam {
+  position:absolute;
+  top:15px;
+  right:15px;
+  background:white;
+  border:none;
+  width:30px;
+  height:30px;
+  border-radius:50%;
 }
 </style>
 </head>
@@ -157,11 +128,9 @@ video, canvas {
 
 <div id="grid"></div>
 
-<!-- PANEL -->
+<!-- SIDE PANEL -->
 <div id="panel">
-  <button id="close">✕</button>
-
-  <div id="panelContent">
+  <div id="content">
     <div id="preview"></div>
 
     <label>Hue</label>
@@ -177,26 +146,30 @@ video, canvas {
     <div id="gallery"></div>
   </div>
 
-  <div id="bottomBar">
+  <div id="bottom">
     <button id="captureMood">Capture Mood</button>
   </div>
 </div>
 
-<!-- CAMERA MODAL -->
+<!-- CAMERA -->
 <div id="overlay">
   <div id="modal">
+
     <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
 
-    <div id="modalControls">
-      <button id="capture">Capture</button>
-      <button id="download">Download</button>
-      <button id="closeCam">Close</button>
+    <button id="closeCam">✕</button>
+
+    <div id="ui">
+      <div id="controls">
+        <button id="capture">Capture</button>
+        <button id="download">Download</button>
+      </div>
     </div>
+
   </div>
 </div>
 
 <script src="./script.js"></script>
-
 </body>
 </html>
