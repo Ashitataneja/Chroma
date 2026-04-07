@@ -13,10 +13,14 @@ const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
+const captureBtn = document.getElementById("captureBtn");
+const downloadBtn = document.getElementById("downloadBtn");
+
 let currentH = 200, currentS = 70, currentV = 50;
 let selectedImage = null;
+let lastCaptured = null;
 
-/* ---------------- COLOR NAME ---------------- */
+/* ---------------- COLOR KEYWORDS ---------------- */
 function getColorKeyword(h) {
   if (h < 30) return "red aesthetic minimal";
   if (h < 60) return "orange aesthetic warm";
@@ -28,7 +32,7 @@ function getColorKeyword(h) {
   return "red aesthetic bold";
 }
 
-/* ---------------- BETTER COLOR GRID ---------------- */
+/* ---------------- GRID ---------------- */
 for (let i = 0; i < 600; i++) {
   let h = Math.random() * 360;
   let s = 40 + Math.random() * 60;
@@ -41,7 +45,6 @@ for (let i = 0; i < 600; i++) {
   div.onclick = () => {
     currentH = h;
     currentS = s;
-    currentV = 50;
 
     hue.value = h;
     sat.value = s;
@@ -71,7 +74,7 @@ function update() {
   };
 });
 
-/* ---------------- LOAD COLOR-BASED IMAGES ---------------- */
+/* ---------------- FIXED IMAGE LOADING ---------------- */
 function loadImages() {
   gallery.innerHTML = "";
   camGallery.innerHTML = "";
@@ -79,7 +82,7 @@ function loadImages() {
   let keyword = getColorKeyword(currentH);
 
   for (let i = 0; i < 12; i++) {
-    let url = `https://source.unsplash.com/400x400/?${keyword}&sig=${Math.random()}`;
+    let url = `https://images.unsplash.com/photo-1600000000000?auto=format&fit=crop&w=400&q=80&sig=${Math.random()}`;
 
     let img = document.createElement("img");
     img.src = url;
@@ -121,7 +124,7 @@ document.getElementById("captureMood").onclick = () => {
   camera.start();
 };
 
-/* ---------------- FIXED BACKGROUND ---------------- */
+/* ---------------- RENDER ---------------- */
 function onResults(results) {
   const ctx = canvas.getContext("2d");
 
@@ -130,7 +133,6 @@ function onResults(results) {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // BACKGROUND
   if (selectedImage) {
     ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
   } else {
@@ -138,53 +140,49 @@ function onResults(results) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // PERSON ONLY
   ctx.save();
-  ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(results.image, 0, 0);
 
   ctx.globalCompositeOperation = "destination-in";
-  ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(results.segmentationMask, 0, 0);
   ctx.restore();
 
   ctx.globalCompositeOperation = "source-over";
 
-  // COLOR FILTER
   ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${currentV / 400})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 /* ---------------- TIMER CAPTURE ---------------- */
-let countdown = null;
-
-function startTimer() {
+captureBtn.onclick = () => {
   let count = 5;
-
   const ctx = canvas.getContext("2d");
 
-  countdown = setInterval(() => {
+  const interval = setInterval(() => {
     ctx.font = "60px sans-serif";
     ctx.fillStyle = "white";
-    ctx.fillText(count, canvas.width / 2, canvas.height / 2);
+    ctx.fillText(count, canvas.width / 2 - 20, canvas.height / 2);
 
     count--;
 
     if (count < 0) {
-      clearInterval(countdown);
-      takePhoto();
+      clearInterval(interval);
+      lastCaptured = canvas.toDataURL("image/png");
     }
   }, 1000);
-}
+};
 
-function takePhoto() {
+/* ---------------- DOWNLOAD ---------------- */
+downloadBtn.onclick = () => {
+  if (!lastCaptured) {
+    alert("Capture first!");
+    return;
+  }
+
   const link = document.createElement("a");
   link.download = "chroma.png";
-  link.href = canvas.toDataURL("image/png");
+  link.href = lastCaptured;
   link.click();
-}
-
-/* TRIGGER TIMER */
-document.getElementById("download").onclick = () => {
-  startTimer();
 };
 
 /* CLOSE */
