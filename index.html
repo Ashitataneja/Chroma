@@ -5,13 +5,13 @@
 <title>Chroma</title>
 
 <style>
-body { margin:0; font-family:-apple-system; background:#111; }
+body { margin:0; font-family:-apple-system; }
 
 /* GRID */
 #grid {
   display:grid;
-  grid-template-columns:repeat(20,1fr);
-  grid-template-rows:repeat(20,1fr);
+  grid-template-columns:repeat(25,1fr);
+  grid-template-rows:repeat(25,1fr);
   width:100vw;
   height:100vh;
 }
@@ -73,44 +73,34 @@ input { width:100%; }
   border-radius:8px;
 }
 
-<!-- CAMERA -->
-<div id="overlay">
-  <div id="modal">
+/* CAMERA MODAL */
+#overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:20;
+}
+#overlay.active { display:flex; }
 
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
+#modal {
+  width:95%;
+  max-width:420px;
+  height:80vh;
+  background:black;
+  border-radius:12px;
+  overflow:hidden;
+  position:relative;
+}
 
-    <button id="closeCam">✕</button>
-
-    <div id="camGallery"></div>
-
-    <!-- BUTTONS -->
-    <div style="
-      position:absolute;
-      bottom:10px;
-      left:10px;
-      right:10px;
-      display:flex;
-      gap:10px;
-    ">
-      <button id="captureBtn" style="
-        flex:1;
-        padding:12px;
-        background:white;
-        border:none;
-        border-radius:8px;
-      ">Capture</button>
-
-      <button id="downloadBtn" style="
-        width:50px;
-        border:none;
-        border-radius:8px;
-        background:white;
-      ">⬇️</button>
-    </div>
-
-  </div>
-</div>
+video, canvas {
+  position:absolute;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 
 /* CLOSE */
 #closeCam {
@@ -128,7 +118,7 @@ input { width:100%; }
 /* IMAGE STRIP */
 #camGallery {
   position:absolute;
-  bottom:60px;
+  bottom:80px;
   display:flex;
   gap:8px;
   overflow-x:auto;
@@ -143,16 +133,31 @@ input { width:100%; }
   cursor:pointer;
 }
 
-/* BUTTON */
-#download {
+/* BUTTONS */
+#controls {
   position:absolute;
   bottom:10px;
-  left:10px;
-  right:10px;
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  padding:0 10px;
+}
+
+#captureBtn {
+  flex:1;
+  margin-right:10px;
   padding:10px;
   border:none;
   background:white;
-  border-radius:6px;
+  border-radius:8px;
+}
+
+#download {
+  width:50px;
+  border:none;
+  background:white;
+  border-radius:8px;
+  opacity:.5;
 }
 </style>
 </head>
@@ -198,7 +203,10 @@ input { width:100%; }
 
     <div id="camGallery"></div>
 
-    <button id="download">Download</button>
+    <div id="controls">
+      <button id="captureBtn">Capture</button>
+      <button id="download">⬇️</button>
+    </div>
 
   </div>
 </div>
