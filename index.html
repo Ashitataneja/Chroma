@@ -95,7 +95,6 @@ input { width:100%; }
   position:relative;
 }
 
-/* VIDEO + CANVAS */
 video, canvas {
   position:absolute;
   width:100%;
@@ -182,7 +181,7 @@ video, canvas {
 <div id="overlay">
   <div id="modal">
 
-    <video id="video" autoplay></video>
+    <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
 
     <button id="closeCam">✕</button>
@@ -193,6 +192,10 @@ video, canvas {
 
   </div>
 </div>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
 
 <script src="script.js"></script>
 
