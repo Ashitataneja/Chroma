@@ -10,12 +10,11 @@ body { margin:0; font-family:-apple-system; }
 /* GRID */
 #grid {
   display:grid;
-  grid-template-columns:repeat(25,1fr);
-  grid-template-rows:repeat(25,1fr);
+  grid-template-columns:repeat(30,1fr);
   width:100vw;
   height:100vh;
 }
-.color { width:100%; height:100%; cursor:pointer; }
+.color { width:100%; aspect-ratio:1; }
 
 /* PANEL */
 #panel {
@@ -34,18 +33,18 @@ body { margin:0; font-family:-apple-system; }
 
 #content { flex:1; overflow:auto; padding:20px; }
 
-#back { font-size:20px; cursor:pointer; }
+#back { cursor:pointer; margin-bottom:10px; }
 
 #preview {
   height:120px;
   border-radius:10px;
-  margin:10px 0;
+  margin-bottom:10px;
 }
 
-label { font-size:12px; margin-top:10px; display:block; }
+label { font-size:12px; }
 input { width:100%; }
 
-/* GALLERY */
+/* IMAGES */
 #gallery {
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -59,7 +58,7 @@ input { width:100%; }
   cursor:pointer;
 }
 
-/* CTA */
+/* BUTTON */
 #bottom {
   padding:15px;
   border-top:1px solid #eee;
@@ -73,15 +72,14 @@ input { width:100%; }
   border-radius:8px;
 }
 
-/* CAMERA MODAL */
+/* CAMERA */
 #overlay {
   position:fixed;
   inset:0;
   background:rgba(0,0,0,.6);
   display:none;
-  align-items:center;
   justify-content:center;
-  z-index:20;
+  align-items:center;
 }
 #overlay.active { display:flex; }
 
@@ -109,10 +107,9 @@ video, canvas {
   right:10px;
   width:32px;
   height:32px;
-  border-radius:50%;
   border:none;
+  border-radius:50%;
   background:white;
-  z-index:5;
 }
 
 /* IMAGE STRIP */
@@ -123,17 +120,15 @@ video, canvas {
   gap:8px;
   overflow-x:auto;
   padding:8px;
-  width:100%;
 }
 #camGallery img {
   width:60px;
   height:60px;
   border-radius:8px;
   object-fit:cover;
-  cursor:pointer;
 }
 
-/* BUTTONS */
+/* CONTROLS */
 #controls {
   position:absolute;
   bottom:10px;
@@ -148,16 +143,16 @@ video, canvas {
   margin-right:10px;
   padding:10px;
   border:none;
-  background:white;
   border-radius:8px;
+  background:white;
 }
 
 #download {
   width:50px;
   border:none;
-  background:white;
   border-radius:8px;
-  opacity:.5;
+  background:white;
+  display:none;
 }
 </style>
 </head>
@@ -169,7 +164,7 @@ video, canvas {
 <div id="panel">
   <div id="content">
 
-    <div id="back">←</div>
+    <div id="back">← Back</div>
 
     <div id="preview"></div>
 
@@ -205,13 +200,18 @@ video, canvas {
 
     <div id="controls">
       <button id="captureBtn">Capture</button>
-      <button id="download">⬇️</button>
+
+      <button id="download">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v3h16v-3"
+          stroke="black" stroke-width="2" fill="none"/>
+        </svg>
+      </button>
     </div>
 
   </div>
 </div>
 
-<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
 
