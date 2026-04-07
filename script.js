@@ -21,6 +21,9 @@ let selectedImage = null;
 let capturedFrame = null;
 let isCaptured = false;
 
+let segmentation;
+let camera;
+
 /* ---------------- GRID ---------------- */
 for (let i = 0; i < 700; i++) {
   let h = Math.random() * 360;
@@ -63,7 +66,7 @@ function update() {
   };
 });
 
-/* ---------------- LOAD IMAGES (FIXED) ---------------- */
+/* ---------------- LOAD IMAGES ---------------- */
 function loadImages() {
   gallery.innerHTML = "";
   camGallery.innerHTML = "";
@@ -74,28 +77,27 @@ function loadImages() {
     let img = document.createElement("img");
     img.src = url;
     img.crossOrigin = "anonymous";
-    img.onclick = () => (selectedImage = img);
+    img.onclick = () => selectedImage = img;
 
     gallery.appendChild(img);
 
     let camImg = document.createElement("img");
     camImg.src = url;
     camImg.crossOrigin = "anonymous";
-    camImg.onclick = () => (selectedImage = camImg);
+    camImg.onclick = () => selectedImage = camImg;
 
     camGallery.appendChild(camImg);
   }
 }
 
-/* ---------------- CAMERA ---------------- */
-let segmentation;
-let camera;
-
+/* ---------------- CAMERA START ---------------- */
 document.getElementById("captureMood").onclick = () => {
   overlay.classList.add("active");
 
   isCaptured = false;
-  downloadBtn.style.opacity = "0.5";
+  capturedFrame = null;
+
+  downloadBtn.style.display = "none";
 
   segmentation = new SelfieSegmentation({
     locateFile: file =>
@@ -116,7 +118,7 @@ document.getElementById("captureMood").onclick = () => {
   camera.start();
 };
 
-/* ---------------- RENDER ---------------- */
+/* ---------------- RENDER (CORRECT BACKGROUND) ---------------- */
 function onResults(results) {
   if (isCaptured) return;
 
@@ -127,7 +129,7 @@ function onResults(results) {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // BACKGROUND
+  // 1️⃣ BACKGROUND IMAGE
   if (selectedImage) {
     ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
   } else {
@@ -135,14 +137,16 @@ function onResults(results) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // PERSON CUTOUT
+  // 2️⃣ DRAW PERSON ABOVE BACKGROUND
   ctx.save();
   ctx.drawImage(results.image, 0, 0);
   ctx.globalCompositeOperation = "destination-in";
   ctx.drawImage(results.segmentationMask, 0, 0);
   ctx.restore();
 
-  // COLOR TINT (helps match image to color)
+  ctx.globalCompositeOperation = "source-over";
+
+  // 3️⃣ COLOR FILTER
   ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${currentV / 400})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
@@ -181,11 +185,17 @@ function captureFrame() {
   img.onload = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
+
+    // STOP CAMERA
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+    }
+
+    // SHOW DOWNLOAD BUTTON
+    downloadBtn.style.display = "block";
   };
 
   img.src = capturedFrame;
-
-  downloadBtn.style.opacity = "1";
 }
 
 /* ---------------- BUTTONS ---------------- */
@@ -205,6 +215,10 @@ downloadBtn.onclick = () => {
 /* ---------------- CLOSE ---------------- */
 document.getElementById("closeCam").onclick = () => {
   overlay.classList.remove("active");
+
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+  }
 };
 
 document.getElementById("back").onclick = () => {
