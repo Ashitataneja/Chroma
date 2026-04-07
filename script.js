@@ -6,47 +6,46 @@ const hue = document.getElementById("hue");
 const sat = document.getElementById("sat");
 const light = document.getElementById("light");
 
-const camHue = document.getElementById("camHue");
-
 const gallery = document.getElementById("gallery");
+const camGallery = document.getElementById("camGallery");
 
 const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
-const filters = document.getElementById("filters");
+const camHue = document.getElementById("camHue");
 
-let currentH=0,currentS=0,currentL=0;
+let currentH=200,currentS=70,currentL=50;
 let selectedImage=null;
 
-/* BETTER COLOR GENERATION */
-let colors=[];
-for(let h=0;h<360;h+=5){
-  for(let s=40;s<=100;s+=20){
-    for(let l=25;l<=75;l+=25){
-      colors.push(`hsl(${h},${s}%,${l}%)`);
+/* COLOR GRID (FIXED VARIETY) */
+for(let h=0;h<360;h+=4){
+  for(let s=40;s<=100;s+=30){
+    for(let l=30;l<=70;l+=20){
+      let color=`hsl(${h},${s}%,${l}%)`;
+
+      let div=document.createElement("div");
+      div.className="color";
+      div.style.background=color;
+
+      div.onclick=()=>{
+        currentH=h;
+        currentS=s;
+        currentL=l;
+
+        hue.value=h;
+        camHue.value=h;
+
+        update();
+        panel.classList.add("active");
+
+        loadImages();
+      };
+
+      grid.appendChild(div);
     }
   }
 }
-colors=[...new Set(colors)];
-
-colors.forEach(c=>{
-  let div=document.createElement("div");
-  div.className="color";
-  div.style.background=c;
-
-  div.onclick=()=>{
-    currentH=parseInt(c.match(/\d+/)[0]);
-    hue.value=currentH;
-    camHue.value=currentH;
-
-    update();
-    panel.classList.add("active");
-    loadImages();
-  };
-
-  grid.appendChild(div);
-});
 
 /* UPDATE */
 function update(){
@@ -67,14 +66,25 @@ camHue.oninput=()=>{
   currentH=camHue.value;
 };
 
-/* IMAGES BASED ON COLOR */
+/* LOAD IMAGES (FIXED SOURCE) */
 function loadImages(){
   gallery.innerHTML="";
+  camGallery.innerHTML="";
+
   for(let i=0;i<12;i++){
+    let imgUrl=`https://picsum.photos/200/200?random=${currentH+i}`;
+
     let img=document.createElement("img");
-    img.src=`https://source.unsplash.com/200x200/?color&sig=${currentH+i}`;
+    img.src=imgUrl;
     img.onclick=()=>selectedImage=img;
+
     gallery.appendChild(img);
+
+    let camImg=document.createElement("img");
+    camImg.src=imgUrl;
+    camImg.onclick=()=>selectedImage=camImg;
+
+    camGallery.appendChild(camImg);
   }
 }
 
@@ -86,6 +96,7 @@ document.getElementById("back").onclick=()=>{
 /* CAMERA */
 document.getElementById("captureMood").onclick=()=>{
   overlay.classList.add("active");
+
   navigator.mediaDevices.getUserMedia({video:true})
   .then(stream=>video.srcObject=stream);
 };
@@ -99,13 +110,15 @@ function draw(){
 
     ctx.drawImage(video,0,0);
 
+    /* BACKGROUND IMAGE */
     if(selectedImage){
       let img=new Image();
       img.src=selectedImage.src;
-      ctx.globalAlpha=0.2; // subtle background
+      ctx.globalAlpha=0.25;
       ctx.drawImage(img,0,0,canvas.width,canvas.height);
     }
 
+    /* COLOR FILTER */
     ctx.fillStyle=`hsla(${currentH},80%,50%,0.25)`;
     ctx.fillRect(0,0,canvas.width,canvas.height);
   }
@@ -122,6 +135,7 @@ document.getElementById("download").onclick=()=>{
   link.click();
 };
 
+/* CLOSE */
 document.getElementById("closeCam").onclick=()=>{
   overlay.classList.remove("active");
 };
