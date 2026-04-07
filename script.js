@@ -13,27 +13,41 @@ const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
-let currentH = 200,
-    currentS = 70,
-    currentV = 50;
-
+let currentH = 200, currentS = 70, currentV = 50;
 let selectedImage = null;
 
-/* ---------------- GRID ---------------- */
-for (let i = 0; i < 400; i++) {
+/* ---------------- COLOR NAME ---------------- */
+function getColorKeyword(h) {
+  if (h < 30) return "red aesthetic minimal";
+  if (h < 60) return "orange aesthetic warm";
+  if (h < 90) return "yellow aesthetic soft";
+  if (h < 150) return "green nature aesthetic";
+  if (h < 210) return "blue aesthetic calm";
+  if (h < 270) return "purple aesthetic dreamy";
+  if (h < 330) return "pink aesthetic soft";
+  return "red aesthetic bold";
+}
+
+/* ---------------- BETTER COLOR GRID ---------------- */
+for (let i = 0; i < 600; i++) {
   let h = Math.random() * 360;
+  let s = 40 + Math.random() * 60;
+  let l = 30 + Math.random() * 40;
 
   let div = document.createElement("div");
   div.className = "color";
-  div.style.background = `hsl(${h},70%,50%)`;
+  div.style.background = `hsl(${h},${s}%,${l}%)`;
 
   div.onclick = () => {
     currentH = h;
+    currentS = s;
+    currentV = 50;
+
     hue.value = h;
+    sat.value = s;
 
     update();
     loadImages();
-
     panel.classList.add("active");
   };
 
@@ -57,23 +71,23 @@ function update() {
   };
 });
 
-/* ---------------- LOAD IMAGES ---------------- */
+/* ---------------- LOAD COLOR-BASED IMAGES ---------------- */
 function loadImages() {
   gallery.innerHTML = "";
   camGallery.innerHTML = "";
 
+  let keyword = getColorKeyword(currentH);
+
   for (let i = 0; i < 12; i++) {
-    let url = `https://picsum.photos/400?random=${Math.random()}`;
+    let url = `https://source.unsplash.com/400x400/?${keyword}&sig=${Math.random()}`;
 
     let img = document.createElement("img");
-    img.crossOrigin = "anonymous";
     img.src = url;
     img.onclick = () => (selectedImage = img);
 
     gallery.appendChild(img);
 
     let camImg = document.createElement("img");
-    camImg.crossOrigin = "anonymous";
     camImg.src = url;
     camImg.onclick = () => (selectedImage = camImg);
 
@@ -94,7 +108,6 @@ document.getElementById("captureMood").onclick = () => {
   });
 
   segmentation.setOptions({ modelSelection: 1 });
-
   segmentation.onResults(onResults);
 
   camera = new Camera(video, {
@@ -108,7 +121,7 @@ document.getElementById("captureMood").onclick = () => {
   camera.start();
 };
 
-/* ---------------- RENDER (FIXED BACKGROUND LOGIC) ---------------- */
+/* ---------------- FIXED BACKGROUND ---------------- */
 function onResults(results) {
   const ctx = canvas.getContext("2d");
 
@@ -117,47 +130,64 @@ function onResults(results) {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // 1️⃣ DRAW BACKGROUND IMAGE
+  // BACKGROUND
   if (selectedImage) {
-    ctx.globalCompositeOperation = "source-over";
     ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
   } else {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // 2️⃣ DRAW PERSON ONLY (USING MASK)
-  ctx.globalCompositeOperation = "source-over";
-
-  // Draw person image
+  // PERSON ONLY
+  ctx.save();
   ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
-  // Keep ONLY person pixels
   ctx.globalCompositeOperation = "destination-in";
   ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
 
-  // 3️⃣ RESET
   ctx.globalCompositeOperation = "source-over";
 
-  // 4️⃣ COLOR FILTER
+  // COLOR FILTER
   ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${currentV / 400})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-/* ---------------- DOWNLOAD ---------------- */
-document.getElementById("download").onclick = () => {
+/* ---------------- TIMER CAPTURE ---------------- */
+let countdown = null;
+
+function startTimer() {
+  let count = 5;
+
+  const ctx = canvas.getContext("2d");
+
+  countdown = setInterval(() => {
+    ctx.font = "60px sans-serif";
+    ctx.fillStyle = "white";
+    ctx.fillText(count, canvas.width / 2, canvas.height / 2);
+
+    count--;
+
+    if (count < 0) {
+      clearInterval(countdown);
+      takePhoto();
+    }
+  }, 1000);
+}
+
+function takePhoto() {
   const link = document.createElement("a");
   link.download = "chroma.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
 
-  try {
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  } catch (e) {
-    alert("Download failed. Try again.");
-  }
+/* TRIGGER TIMER */
+document.getElementById("download").onclick = () => {
+  startTimer();
 };
 
-/* ---------------- CLOSE ---------------- */
+/* CLOSE */
 document.getElementById("closeCam").onclick = () => {
   overlay.classList.remove("active");
 };
