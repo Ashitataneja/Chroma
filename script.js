@@ -12,6 +12,8 @@ const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
+const filters = document.getElementById("filters");
+
 let currentH=0,currentS=0,currentL=0;
 let selectedImage=null;
 
@@ -35,27 +37,6 @@ g=Math.round((g+m)*255).toString(16).padStart(2,"0");
 b=Math.round((b+m)*255).toString(16).padStart(2,"0");
 
 return `#${r}${g}${b}`;
-}
-
-function hexToHSL(hex){
-let r=parseInt(hex.slice(1,3),16)/255;
-let g=parseInt(hex.slice(3,5),16)/255;
-let b=parseInt(hex.slice(5,7),16)/255;
-
-let max=Math.max(r,g,b),min=Math.min(r,g,b);
-let h,s,l=(max+min)/2;
-
-if(max!==min){
-let d=max-min;
-s=l>0.5?d/(2-max-min):d/(max+min);
-switch(max){
-case r:h=(g-b)/d%6;break;
-case g:h=(b-r)/d+2;break;
-case b:h=(r-g)/d+4;break;
-}
-h=Math.round(h*60);
-}
-return {h,s:Math.round(s*100),l:Math.round(l*100)};
 }
 
 /* GRID */
@@ -84,15 +65,38 @@ light.value=currentL;
 
 update();
 panel.classList.add("active");
+
 loadImages();
 };
 grid.appendChild(div);
 });
 
+/* HEX → HSL */
+function hexToHSL(hex){
+let r=parseInt(hex.slice(1,3),16)/255;
+let g=parseInt(hex.slice(3,5),16)/255;
+let b=parseInt(hex.slice(5,7),16)/255;
+
+let max=Math.max(r,g,b),min=Math.min(r,g,b);
+let h,s,l=(max+min)/2;
+
+if(max!==min){
+let d=max-min;
+s=l>0.5?d/(2-max-min):d/(max+min);
+switch(max){
+case r:h=(g-b)/d%6;break;
+case g:h=(b-r)/d+2;break;
+case b:h=(r-g)/d+4;break;
+}
+h=Math.round(h*60);
+}
+return {h,s:Math.round(s*100),l:Math.round(l*100)};
+}
+
 /* UPDATE */
 function update(){
 preview.style.background=hslToHex(currentH,currentS,currentL);
-loadImages();
+createFilterCircles();
 }
 
 /* SLIDERS */
@@ -102,41 +106,50 @@ currentH=hue.value;
 currentS=sat.value;
 currentL=light.value;
 update();
+loadImages();
 };
 });
 
-/* COLOR-BASED IMAGES */
+/* LOAD 12 IMAGES */
 function loadImages(){
 gallery.innerHTML="";
-let colorKeyword = getColorName(currentH);
-
-for(let i=0;i<6;i++){
+for(let i=0;i<12;i++){
 let img=document.createElement("img");
-img.src=`https://source.unsplash.com/200x200/?${colorKeyword}&sig=${Math.random()}`;
-img.onclick=()=>{selectedImage=img;};
+img.src=`https://picsum.photos/200?random=${Math.random()}`;
+img.onclick=()=>selectedImage=img;
 gallery.appendChild(img);
 }
 }
 
-/* BASIC COLOR NAMING */
-function getColorName(h){
-if(h<30) return "red aesthetic";
-if(h<90) return "yellow aesthetic";
-if(h<150) return "green aesthetic";
-if(h<210) return "blue aesthetic";
-if(h<270) return "purple aesthetic";
-return "pink aesthetic";
+/* FILTER CIRCLES */
+function createFilterCircles(){
+filters.innerHTML="";
+
+for(let i=0;i<6;i++){
+let circle=document.createElement("div");
+circle.className="filterCircle";
+circle.style.background=hslToHex(currentH+i*10,currentS,currentL);
+circle.onclick=()=>currentH+=i*10;
+filters.appendChild(circle);
+}
+
+for(let i=0;i<6;i++){
+let img=document.createElement("img");
+img.className="filterImg";
+img.src=`https://picsum.photos/50?random=${Math.random()}`;
+img.onclick=()=>selectedImage=img;
+filters.appendChild(img);
+}
 }
 
 /* CAMERA */
 document.getElementById("captureMood").onclick=()=>{
 overlay.classList.add("active");
-
 navigator.mediaDevices.getUserMedia({video:true})
 .then(stream=>video.srcObject=stream);
 };
 
-/* LIVE DRAW LOOP */
+/* LIVE RENDER */
 function draw(){
 if(video.videoWidth){
 let ctx=canvas.getContext("2d");
@@ -161,11 +174,6 @@ requestAnimationFrame(draw);
 }
 draw();
 
-/* CAPTURE */
-document.getElementById("capture").onclick=()=>{
-alert("Captured! Screenshot canvas manually for now.");
-};
-
 /* DOWNLOAD */
 document.getElementById("download").onclick=()=>{
 let link=document.createElement("a");
@@ -174,7 +182,6 @@ link.href=canvas.toDataURL();
 link.click();
 };
 
-/* CLOSE */
 document.getElementById("closeCam").onclick=()=>{
 overlay.classList.remove("active");
 };
