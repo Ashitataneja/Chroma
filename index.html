@@ -32,7 +32,7 @@ body { margin:0; font-family:-apple-system; background:#111; }
 
 #preview { height:120px; border-radius:10px; margin-bottom:10px; }
 
-label { font-size:12px; margin-top:10px; display:block; }
+label { font-size:12px; display:block; margin-top:10px; }
 
 input { width:100%; }
 
@@ -49,11 +49,8 @@ input { width:100%; }
   cursor:pointer;
 }
 
-/* BOTTOM CTA */
-#bottom {
-  padding:15px;
-  border-top:1px solid #eee;
-}
+/* CTA */
+#bottom { padding:15px; border-top:1px solid #eee; }
 #captureMood {
   width:100%;
   padding:12px;
@@ -63,63 +60,81 @@ input { width:100%; }
   border-radius:8px;
 }
 
-/* MODAL */
+/* CAMERA MODAL */
 #overlay {
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,.8);
+  background:rgba(0,0,0,.7);
   display:none;
+  align-items:center;
+  justify-content:center;
 }
-#overlay.active { display:block; }
+#overlay.active { display:flex; }
 
 #modal {
-  position:absolute;
-  inset:0;
-  display:flex;
-  flex-direction:column;
+  width:90%;
+  max-width:420px;
+  background:black;
+  border-radius:12px;
+  overflow:hidden;
+  position:relative;
 }
 
-video {
+video, canvas {
   width:100%;
-  height:100%;
+  height:300px;
   object-fit:cover;
 }
 
-canvas {
+#closeCam {
   position:absolute;
-  inset:0;
+  top:10px;
+  right:10px;
+  background:white;
+  border:none;
+  border-radius:50%;
+  width:30px;
+  height:30px;
 }
 
-#ui {
-  position:absolute;
-  bottom:0;
-  width:100%;
+/* FILTER STRIP */
+#filters {
+  display:flex;
+  overflow-x:auto;
+  gap:8px;
   padding:10px;
-  background:linear-gradient(transparent, rgba(0,0,0,0.7));
+  background:#000;
 }
 
+.filterCircle {
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  flex-shrink:0;
+  border:2px solid white;
+  cursor:pointer;
+}
+
+.filterImg {
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  object-fit:cover;
+  border:2px solid white;
+}
+
+/* CONTROLS */
 #controls {
   display:flex;
   gap:8px;
+  padding:10px;
 }
-
 #controls button {
   flex:1;
   padding:10px;
   border:none;
   background:white;
   border-radius:6px;
-}
-
-#closeCam {
-  position:absolute;
-  top:15px;
-  right:15px;
-  background:white;
-  border:none;
-  width:30px;
-  height:30px;
-  border-radius:50%;
 }
 </style>
 </head>
@@ -128,7 +143,6 @@ canvas {
 
 <div id="grid"></div>
 
-<!-- SIDE PANEL -->
 <div id="panel">
   <div id="content">
     <div id="preview"></div>
@@ -160,16 +174,16 @@ canvas {
 
     <button id="closeCam">✕</button>
 
-    <div id="ui">
-      <div id="controls">
-        <button id="capture">Capture</button>
-        <button id="download">Download</button>
-      </div>
+    <div id="filters"></div>
+
+    <div id="controls">
+      <button id="capture">Capture</button>
+      <button id="download">Download</button>
     </div>
 
   </div>
 </div>
 
-<script src="./script.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
