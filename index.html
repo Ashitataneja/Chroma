@@ -1,212 +1,221 @@
-const grid = document.getElementById("grid");
-const panel = document.getElementById("panel");
-const preview = document.getElementById("preview");
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Chroma</title>
 
-const hue = document.getElementById("hue");
-const sat = document.getElementById("sat");
-const vib = document.getElementById("vib");
+<style>
+body { margin:0; font-family:-apple-system; }
 
-const gallery = document.getElementById("gallery");
-const camGallery = document.getElementById("camGallery");
+/* GRID */
+#grid {
+  display:grid;
+  grid-template-columns:repeat(25,1fr);
+  grid-template-rows:repeat(25,1fr);
+  width:100vw;
+  height:100vh;
+}
+.color { width:100%; height:100%; cursor:pointer; }
 
-const overlay = document.getElementById("overlay");
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
+/* PANEL */
+#panel {
+  position:fixed;
+  right:0; top:0;
+  width:360px;
+  height:100%;
+  background:white;
+  transform:translateX(100%);
+  transition:.3s;
+  display:flex;
+  flex-direction:column;
+  z-index:10;
+}
+#panel.active { transform:translateX(0); }
 
-const captureBtn = document.getElementById("captureBtn");
-const downloadBtn = document.getElementById("download");
+#content { flex:1; overflow:auto; padding:20px; }
 
-let currentH = 200, currentS = 70, currentV = 50;
-let selectedImage = null;
-let capturedFrame = null;
-let isCaptured = false;
+#back { font-size:20px; cursor:pointer; }
 
-/* ---------------- GRID ---------------- */
-for (let i = 0; i < 700; i++) {
-  let h = Math.random() * 360;
-  let s = 40 + Math.random() * 60;
-  let l = 30 + Math.random() * 40;
-
-  let div = document.createElement("div");
-  div.className = "color";
-  div.style.background = `hsl(${h},${s}%,${l}%)`;
-
-  div.onclick = () => {
-    currentH = h;
-    currentS = s;
-
-    hue.value = h;
-    sat.value = s;
-
-    update();
-    loadImages();
-    panel.classList.add("active");
-  };
-
-  grid.appendChild(div);
+#preview {
+  height:120px;
+  border-radius:10px;
+  margin:10px 0;
 }
 
-/* ---------------- UPDATE ---------------- */
-function update() {
-  preview.style.background = `hsl(${currentH},${currentS}%,50%)`;
+label { font-size:12px; margin-top:10px; display:block; }
+input { width:100%; }
+
+/* GALLERY */
+#gallery {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+}
+#gallery img {
+  width:100%;
+  height:90px;
+  object-fit:cover;
+  border-radius:6px;
+  cursor:pointer;
 }
 
-/* ---------------- SLIDERS ---------------- */
-[hue, sat, vib].forEach(sl => {
-  sl.oninput = () => {
-    currentH = hue.value;
-    currentS = sat.value;
-    currentV = vib.value;
-
-    update();
-    loadImages();
-  };
-});
-
-/* ---------------- LOAD IMAGES (FIXED) ---------------- */
-function loadImages() {
-  gallery.innerHTML = "";
-  camGallery.innerHTML = "";
-
-  for (let i = 0; i < 12; i++) {
-    let url = `https://picsum.photos/400?random=${Math.random()}`;
-
-    let img = document.createElement("img");
-    img.src = url;
-    img.crossOrigin = "anonymous";
-    img.onclick = () => (selectedImage = img);
-
-    gallery.appendChild(img);
-
-    let camImg = document.createElement("img");
-    camImg.src = url;
-    camImg.crossOrigin = "anonymous";
-    camImg.onclick = () => (selectedImage = camImg);
-
-    camGallery.appendChild(camImg);
-  }
+/* CTA */
+#bottom {
+  padding:15px;
+  border-top:1px solid #eee;
+}
+#captureMood {
+  width:100%;
+  padding:12px;
+  background:black;
+  color:white;
+  border:none;
+  border-radius:8px;
 }
 
-/* ---------------- CAMERA ---------------- */
-let segmentation;
-let camera;
+/* CAMERA MODAL */
+#overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:20;
+}
+#overlay.active { display:flex; }
 
-document.getElementById("captureMood").onclick = () => {
-  overlay.classList.add("active");
-
-  isCaptured = false;
-  downloadBtn.style.opacity = "0.5";
-
-  segmentation = new SelfieSegmentation({
-    locateFile: file =>
-      `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
-  });
-
-  segmentation.setOptions({ modelSelection: 1 });
-  segmentation.onResults(onResults);
-
-  camera = new Camera(video, {
-    onFrame: async () => {
-      if (!isCaptured) {
-        await segmentation.send({ image: video });
-      }
-    }
-  });
-
-  camera.start();
-};
-
-/* ---------------- RENDER ---------------- */
-function onResults(results) {
-  if (isCaptured) return;
-
-  const ctx = canvas.getContext("2d");
-
-  canvas.width = results.image.width;
-  canvas.height = results.image.height;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // BACKGROUND
-  if (selectedImage) {
-    ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
-  } else {
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  // PERSON CUTOUT
-  ctx.save();
-  ctx.drawImage(results.image, 0, 0);
-  ctx.globalCompositeOperation = "destination-in";
-  ctx.drawImage(results.segmentationMask, 0, 0);
-  ctx.restore();
-
-  // COLOR TINT (helps match image to color)
-  ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${currentV / 400})`;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+#modal {
+  width:95%;
+  max-width:420px;
+  height:80vh;
+  background:black;
+  border-radius:12px;
+  overflow:hidden;
+  position:relative;
 }
 
-/* ---------------- TIMER ---------------- */
-function startTimer() {
-  let count = 5;
-  const ctx = canvas.getContext("2d");
-
-  let interval = setInterval(() => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.font = "100px sans-serif";
-    ctx.fillStyle = "white";
-    ctx.textAlign = "center";
-    ctx.fillText(count, canvas.width / 2, canvas.height / 2);
-
-    count--;
-
-    if (count < 0) {
-      clearInterval(interval);
-      captureFrame();
-    }
-  }, 1000);
+video, canvas {
+  position:absolute;
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
-/* ---------------- CAPTURE ---------------- */
-function captureFrame() {
-  isCaptured = true;
-
-  capturedFrame = canvas.toDataURL("image/png");
-
-  const ctx = canvas.getContext("2d");
-  const img = new Image();
-
-  img.onload = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0);
-  };
-
-  img.src = capturedFrame;
-
-  downloadBtn.style.opacity = "1";
+/* CLOSE */
+#closeCam {
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  border:none;
+  background:white;
+  z-index:5;
 }
 
-/* ---------------- BUTTONS ---------------- */
-captureBtn.onclick = () => {
-  startTimer();
-};
+/* IMAGE STRIP */
+#camGallery {
+  position:absolute;
+  bottom:80px;
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding:8px;
+  width:100%;
+}
+#camGallery img {
+  width:60px;
+  height:60px;
+  border-radius:8px;
+  object-fit:cover;
+  cursor:pointer;
+}
 
-downloadBtn.onclick = () => {
-  if (!capturedFrame) return;
+/* BUTTONS */
+#controls {
+  position:absolute;
+  bottom:10px;
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  padding:0 10px;
+}
 
-  const link = document.createElement("a");
-  link.download = "chroma.png";
-  link.href = capturedFrame;
-  link.click();
-};
+#captureBtn {
+  flex:1;
+  margin-right:10px;
+  padding:10px;
+  border:none;
+  background:white;
+  border-radius:8px;
+}
 
-/* ---------------- CLOSE ---------------- */
-document.getElementById("closeCam").onclick = () => {
-  overlay.classList.remove("active");
-};
+#download {
+  width:50px;
+  border:none;
+  background:white;
+  border-radius:8px;
+  opacity:.5;
+}
+</style>
+</head>
 
-document.getElementById("back").onclick = () => {
-  panel.classList.remove("active");
-};
+<body>
+
+<div id="grid"></div>
+
+<div id="panel">
+  <div id="content">
+
+    <div id="back">←</div>
+
+    <div id="preview"></div>
+
+    <label>Hue</label>
+    <input type="range" id="hue" min="0" max="360">
+
+    <label>Saturation</label>
+    <input type="range" id="sat" min="0" max="100">
+
+    <label>Vibrance</label>
+    <input type="range" id="vib" min="0" max="100">
+
+    <h4>Inspiration</h4>
+    <div id="gallery"></div>
+
+  </div>
+
+  <div id="bottom">
+    <button id="captureMood">Capture Mood</button>
+  </div>
+</div>
+
+<!-- CAMERA -->
+<div id="overlay">
+  <div id="modal">
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <button id="closeCam">✕</button>
+
+    <div id="camGallery"></div>
+
+    <div id="controls">
+      <button id="captureBtn">Capture</button>
+      <button id="download">⬇️</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+
+<script src="script.js"></script>
+
+</body>
+</html>
