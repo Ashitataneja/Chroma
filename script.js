@@ -248,7 +248,7 @@ function createGalleryImg(imgEl, url, type, idx) {
 document.getElementById('captureMood').addEventListener('click', openCamera);
 
 function openCamera() {
-  // Reset state
+  // Reset state FIRST before anything starts
   isCaptured = false;
   capturedDataURL = null;
   isTimerRunning = false;
@@ -257,9 +257,16 @@ function openCamera() {
   downloadBtn.classList.remove('visible');
   timerDisp.classList.remove('visible');
 
+  // Clear the canvas so old frozen frame doesn't show through
+  const ctx = canvas.getContext('2d');
+  canvas.width = 640;
+  canvas.height = 480;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   overlay.classList.add('active');
 
-  initSegmentation();
+  // Small delay so overlay is visible before camera permission prompt
+  setTimeout(initSegmentation, 80);
 }
 
 function initSegmentation() {
@@ -379,13 +386,13 @@ function freezeCapture() {
   isCaptured = true;
   isTimerRunning = false;
 
-  // Final render: draw what's currently on canvas into a data URL
-  capturedDataURL = canvas.toDataURL('image/png');
-
-  // Stop the camera stream
+  // Stop camera IMMEDIATELY so onSegmentationResults can't overwrite the canvas
   stopCamera();
 
-  // Optionally reload the frozen frame onto canvas cleanly
+  // Grab whatever is currently on the canvas
+  capturedDataURL = canvas.toDataURL('image/png');
+
+  // Redraw cleanly
   const img = new Image();
   img.onload = () => {
     const ctx = canvas.getContext('2d');
