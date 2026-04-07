@@ -1,221 +1,558 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Chroma</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chroma — Mood Photography</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-body { margin:0; font-family:-apple-system; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* GRID */
-#grid {
-  display:grid;
-  grid-template-columns:repeat(30,1fr);
-  width:100vw;
-  height:100vh;
-}
-.color { width:100%; aspect-ratio:1; }
+  :root {
+    --panel-w: 380px;
+    --radius: 14px;
+    --easing: cubic-bezier(0.22, 1, 0.36, 1);
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
 
-/* PANEL */
-#panel {
-  position:fixed;
-  right:0; top:0;
-  width:360px;
-  height:100%;
-  background:white;
-  transform:translateX(100%);
-  transition:.3s;
-  display:flex;
-  flex-direction:column;
-  z-index:10;
-}
-#panel.active { transform:translateX(0); }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: var(--font-body);
+    background: #0a0a0a;
+    cursor: crosshair;
+  }
 
-#content { flex:1; overflow:auto; padding:20px; }
+  /* ── GRID ─────────────────────────────── */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(35, 1fr);
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
 
-#back { cursor:pointer; margin-bottom:10px; }
+  .cell {
+    width: 100%;
+    aspect-ratio: 1;
+    transition: transform 0.15s var(--easing), filter 0.15s;
+    cursor: pointer;
+    position: relative;
+  }
 
-#preview {
-  height:120px;
-  border-radius:10px;
-  margin-bottom:10px;
-}
+  .cell:hover {
+    transform: scale(1.6);
+    z-index: 5;
+    filter: brightness(1.25);
+  }
 
-label { font-size:12px; }
-input { width:100%; }
+  /* ── PANEL ────────────────────────────── */
+  #panel {
+    position: fixed;
+    right: 0; top: 0;
+    width: var(--panel-w);
+    height: 100%;
+    background: #ffffff;
+    transform: translateX(100%);
+    transition: transform 0.5s var(--easing);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    box-shadow: -20px 0 80px rgba(0,0,0,0.25);
+  }
 
-/* IMAGES */
-#gallery {
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:6px;
-}
-#gallery img {
-  width:100%;
-  height:90px;
-  object-fit:cover;
-  border-radius:6px;
-  cursor:pointer;
-}
+  #panel.active { transform: translateX(0); }
 
-/* BUTTON */
-#bottom {
-  padding:15px;
-  border-top:1px solid #eee;
-}
-#captureMood {
-  width:100%;
-  padding:12px;
-  background:black;
-  color:white;
-  border:none;
-  border-radius:8px;
-}
+  /* panel scrollable content */
+  #panel-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #ddd transparent;
+  }
+  #panel-scroll::-webkit-scrollbar { width: 4px; }
+  #panel-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
 
-/* CAMERA */
-#overlay {
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.6);
-  display:none;
-  justify-content:center;
-  align-items:center;
-}
-#overlay.active { display:flex; }
+  /* back button */
+  #back {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 22px 0;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    color: #999;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+    user-select: none;
+  }
+  #back:hover { color: #000; }
+  #back svg { transition: transform 0.2s var(--easing); }
+  #back:hover svg { transform: translateX(-3px); }
 
-#modal {
-  width:95%;
-  max-width:420px;
-  height:80vh;
-  background:black;
-  border-radius:12px;
-  overflow:hidden;
-  position:relative;
-}
+  /* color preview swatch */
+  #preview-wrap {
+    margin: 14px 22px 0;
+    position: relative;
+  }
 
-video, canvas {
-  position:absolute;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
+  #preview {
+    width: 100%;
+    height: 110px;
+    border-radius: var(--radius);
+    transition: background 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
 
-/* CLOSE */
-#closeCam {
-  position:absolute;
-  top:10px;
-  right:10px;
-  width:32px;
-  height:32px;
-  border:none;
-  border-radius:50%;
-  background:white;
-}
+  #preview::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 60%);
+    border-radius: var(--radius);
+    pointer-events: none;
+  }
 
-/* IMAGE STRIP */
-#camGallery {
-  position:absolute;
-  bottom:80px;
-  display:flex;
-  gap:8px;
-  overflow-x:auto;
-  padding:8px;
-}
-#camGallery img {
-  width:60px;
-  height:60px;
-  border-radius:8px;
-  object-fit:cover;
-}
+  #color-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-top: 8px;
+    text-align: right;
+    padding-right: 2px;
+    transition: color 0.3s;
+  }
 
-/* CONTROLS */
-#controls {
-  position:absolute;
-  bottom:10px;
-  width:100%;
-  display:flex;
-  justify-content:space-between;
-  padding:0 10px;
-}
+  /* sliders section */
+  #sliders {
+    padding: 6px 22px 0;
+  }
 
-#captureBtn {
-  flex:1;
-  margin-right:10px;
-  padding:10px;
-  border:none;
-  border-radius:8px;
-  background:white;
-}
+  .slider-row {
+    margin-bottom: 14px;
+  }
 
-#download {
-  width:50px;
-  border:none;
-  border-radius:8px;
-  background:white;
-  display:none;
-}
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+
+  .slider-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #555;
+  }
+
+  .slider-val {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: #aaa;
+    font-weight: 300;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: #eee;
+    outline: none;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #111;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    cursor: pointer;
+    transition: transform 0.15s var(--easing);
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #111;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+
+  /* section headings */
+  .section-head {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #bbb;
+    padding: 18px 22px 10px;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  /* gallery grid */
+  #gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    padding: 0 22px;
+  }
+
+  #gallery img {
+    width: 100%;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s var(--easing), box-shadow 0.2s, opacity 0.15s;
+    opacity: 0;
+    animation: fadeUp 0.4s var(--easing) forwards;
+  }
+
+  #gallery img:hover {
+    transform: scale(1.04);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  }
+
+  #gallery img.selected {
+    outline: 3px solid #111;
+    outline-offset: 2px;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* bottom capture button */
+  #bottom {
+    padding: 14px 22px 20px;
+    border-top: 1px solid #f0f0f0;
+    background: white;
+    flex-shrink: 0;
+  }
+
+  #captureMood {
+    width: 100%;
+    padding: 14px;
+    background: #111;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s var(--easing);
+  }
+  #captureMood:hover {
+    background: #333;
+    transform: translateY(-1px);
+  }
+  #captureMood:active { transform: translateY(0); }
+
+  /* ── CAMERA OVERLAY ───────────────────── */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    animation: overlayIn 0.3s var(--easing);
+  }
+
+  @keyframes overlayIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  #overlay.active { display: flex; }
+
+  #modal {
+    width: min(420px, 95vw);
+    height: min(680px, 90vh);
+    background: #0a0a0a;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.6);
+    animation: modalIn 0.4s var(--easing);
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.9) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  video, canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* flip the live view for mirror effect */
+  video { transform: scaleX(-1); }
+
+  /* close btn */
+  #closeCam {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 34px; height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(8px);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+    font-family: var(--font-body);
+  }
+  #closeCam:hover { background: rgba(255,255,255,0.3); }
+
+  /* cam gallery strip */
+  #camGallery {
+    position: absolute;
+    bottom: 80px;
+    left: 0; right: 0;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 12px;
+    scrollbar-width: none;
+    z-index: 5;
+  }
+  #camGallery::-webkit-scrollbar { display: none; }
+
+  #camGallery img {
+    width: 58px; height: 58px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s, transform 0.2s var(--easing);
+  }
+  #camGallery img:hover { transform: scale(1.08); }
+  #camGallery img.selected { border-color: white; }
+
+  /* controls bar */
+  #controls {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 0 18px;
+    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+    z-index: 5;
+  }
+
+  #captureBtn {
+    flex: 1;
+    max-width: 200px;
+    height: 48px;
+    border: none;
+    border-radius: 28px;
+    background: white;
+    color: #111;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.15s var(--easing), background 0.2s;
+  }
+  #captureBtn:hover { transform: scale(1.04); }
+  #captureBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  #download {
+    width: 48px; height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.15s;
+  }
+  #download:hover { background: rgba(255,255,255,0.3); transform: scale(1.08); }
+  #download.visible { display: flex; }
+
+  /* timer overlay on canvas */
+  #timer-display {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 120px;
+    font-weight: 800;
+    color: white;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+    pointer-events: none;
+    z-index: 6;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  #timer-display.visible { opacity: 1; }
+
+  /* loading state for gallery */
+  .img-skeleton {
+    width: 100%; height: 88px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+  }
+
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
+  /* notification toast */
+  #toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #111;
+    color: white;
+    padding: 10px 22px;
+    border-radius: 30px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 999;
+    transition: transform 0.4s var(--easing), opacity 0.4s;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
 </style>
 </head>
-
 <body>
 
+<!-- PIXEL GRID -->
 <div id="grid"></div>
 
+<!-- SIDE PANEL -->
 <div id="panel">
-  <div id="content">
+  <div id="panel-scroll">
 
-    <div id="back">← Back</div>
+    <div id="back">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M9 2L4 7l5 5" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Close
+    </div>
 
-    <div id="preview"></div>
+    <div id="preview-wrap">
+      <div id="preview"></div>
+      <div id="color-label">–</div>
+    </div>
 
-    <label>Hue</label>
-    <input type="range" id="hue" min="0" max="360">
+    <div id="sliders">
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Hue</span>
+          <span class="slider-val" id="hueVal">–</span>
+        </div>
+        <input type="range" id="hue" min="0" max="360" value="200">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Saturation</span>
+          <span class="slider-val" id="satVal">–</span>
+        </div>
+        <input type="range" id="sat" min="0" max="100" value="70">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Vibrance</span>
+          <span class="slider-val" id="vibVal">–</span>
+        </div>
+        <input type="range" id="vib" min="0" max="100" value="50">
+      </div>
+    </div>
 
-    <label>Saturation</label>
-    <input type="range" id="sat" min="0" max="100">
-
-    <label>Vibrance</label>
-    <input type="range" id="vib" min="0" max="100">
-
-    <h4>Inspiration</h4>
+    <div class="section-head">Mood Inspiration</div>
     <div id="gallery"></div>
 
+    <div style="height:16px;"></div>
   </div>
 
   <div id="bottom">
-    <button id="captureMood">Capture Mood</button>
+    <button id="captureMood">↗ Capture Mood</button>
   </div>
 </div>
 
-<!-- CAMERA -->
+<!-- CAMERA MODAL -->
 <div id="overlay">
   <div id="modal">
-
-    <video id="video" autoplay playsinline></video>
+    <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
-
-    <button id="closeCam">✕</button>
-
+    <div id="timer-display"></div>
+    <button id="closeCam" title="Close">✕</button>
     <div id="camGallery"></div>
-
     <div id="controls">
       <button id="captureBtn">Capture</button>
-
-      <button id="download">
-        <svg width="20" height="20" viewBox="0 0 24 24">
-          <path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v3h16v-3"
-          stroke="black" stroke-width="2" fill="none"/>
+      <button id="download" title="Download">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3v13M12 16l-4-4m4 4l4-4M4 20h16"
+            stroke="white" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>
-
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+<!-- TOAST -->
+<div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="script.js"></script>
-
 </body>
 </html>
