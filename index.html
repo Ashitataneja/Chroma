@@ -5,115 +5,151 @@
 <title>Chroma</title>
 
 <style>
-body {
-  margin: 0;
-  overflow: hidden;
-  font-family: -apple-system;
-}
+body { margin:0; font-family:-apple-system; background:#111; }
 
-/* FULL GRID */
+/* PERFECT GRID */
 #grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(24px, 1fr));
-  width: 100vw;
-  height: 100vh;
+  display:grid;
+  grid-template-columns:repeat(20, 1fr);
+  grid-template-rows:repeat(20, 1fr);
+  width:100vw;
+  height:100vh;
 }
-
 .color {
-  width: 100%;
-  height: 100%;
+  width:100%;
+  height:100%;
+  cursor:pointer;
 }
 
 /* PANEL */
 #panel {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 340px;
-  height: 100%;
-  background: white;
-  transform: translateX(100%);
-  transition: 0.3s;
-  display: flex;
-  flex-direction: column;
+  position:fixed;
+  right:0;
+  top:0;
+  width:360px;
+  height:100%;
+  background:white;
+  transform:translateX(100%);
+  transition:.3s;
+  display:flex;
+  flex-direction:column;
 }
-
-#panel.active {
-  transform: translateX(0);
-}
+#panel.active { transform:translateX(0); }
 
 #content {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
+  flex:1;
+  overflow:auto;
+  padding:20px;
 }
 
+#back { font-size:20px; cursor:pointer; }
+
 #preview {
-  height: 100px;
-  border-radius: 10px;
+  height:120px;
+  border-radius:10px;
+  margin:10px 0;
 }
+
+label { font-size:12px; margin-top:10px; display:block; }
+
+input { width:100%; }
 
 /* GALLERY */
 #gallery {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+  margin-top:10px;
+}
+#gallery img {
+  width:100%;
+  height:90px;
+  object-fit:cover;
+  border-radius:6px;
+  cursor:pointer;
 }
 
-#gallery img {
-  width: 100%;
-  height: 80px;
-  object-fit: cover;
+/* CTA */
+#bottom {
+  padding:15px;
+  border-top:1px solid #eee;
+}
+#captureMood {
+  width:100%;
+  padding:12px;
+  background:black;
+  color:white;
+  border:none;
+  border-radius:8px;
 }
 
 /* CAMERA */
 #overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.8);
-  display: none;
-  justify-content: center;
-  align-items: center;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:none;
+  align-items:center;
+  justify-content:center;
 }
-
-#overlay.active {
-  display: flex;
-}
+#overlay.active { display:flex; }
 
 #modal {
-  width: 90%;
-  max-width: 420px;
-  height: 80vh;
-  background: black;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  width:90%;
+  max-width:420px;
+  height:80vh;
+  background:black;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  position:relative;
 }
 
 video, canvas {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
-/* TOP IMAGE STRIP */
+/* TOP STRIP */
 #camGallery {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 6px;
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding:8px;
+  background:black;
 }
-
 #camGallery img {
-  width: 60px;
-  height: 60px;
-  border-radius: 6px;
+  width:60px;
+  height:60px;
+  border-radius:8px;
 }
 
-/* SLIDER */
-#camHue {
-  width: 100%;
+/* COLOR BAR */
+#colorBar {
+  height:15px;
+  background:linear-gradient(to right, red, yellow, green, cyan, blue, magenta, red);
+}
+#camHue { width:100%; }
+
+/* BUTTON */
+#download {
+  padding:10px;
+  border:none;
+  background:white;
+  margin:10px;
+  border-radius:6px;
+}
+
+#closeCam {
+  position:absolute;
+  top:10px;
+  right:10px;
+  border:none;
+  background:white;
+  border-radius:50%;
+  width:30px;
 }
 </style>
 </head>
@@ -124,25 +160,38 @@ video, canvas {
 
 <div id="panel">
   <div id="content">
+    <div id="back">←</div>
+
     <div id="preview"></div>
 
+    <label>Hue</label>
     <input type="range" id="hue" min="0" max="360">
 
+    <h4>Inspiration</h4>
     <div id="gallery"></div>
   </div>
 
-  <button id="captureMood">Capture Mood</button>
+  <div id="bottom">
+    <button id="captureMood">Capture Mood</button>
+  </div>
 </div>
 
+<!-- CAMERA -->
 <div id="overlay">
   <div id="modal">
+
     <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
 
+    <button id="closeCam">✕</button>
+
     <div id="camGallery"></div>
+
+    <div id="colorBar"></div>
     <input type="range" id="camHue" min="0" max="360">
 
     <button id="download">Download</button>
+
   </div>
 </div>
 
