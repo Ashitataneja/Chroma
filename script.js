@@ -13,20 +13,23 @@ const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
-let currentH=200,currentS=70,currentV=50;
-let selectedImage=null;
+let currentH = 200,
+    currentS = 70,
+    currentV = 50;
 
-/* GRID */
-for(let i=0;i<400;i++){
-  let h=Math.random()*360;
+let selectedImage = null;
 
-  let div=document.createElement("div");
-  div.className="color";
-  div.style.background=`hsl(${h},70%,50%)`;
+/* ---------------- GRID ---------------- */
+for (let i = 0; i < 400; i++) {
+  let h = Math.random() * 360;
 
-  div.onclick=()=>{
-    currentH=h;
-    hue.value=h;
+  let div = document.createElement("div");
+  div.className = "color";
+  div.style.background = `hsl(${h},70%,50%)`;
+
+  div.onclick = () => {
+    currentH = h;
+    hue.value = h;
 
     update();
     loadImages();
@@ -37,48 +40,48 @@ for(let i=0;i<400;i++){
   grid.appendChild(div);
 }
 
-/* UPDATE */
-function update(){
-  preview.style.background=`hsl(${currentH},${currentS}%,50%)`;
+/* ---------------- UPDATE ---------------- */
+function update() {
+  preview.style.background = `hsl(${currentH},${currentS}%,50%)`;
 }
 
-/* SLIDERS */
-[hue,sat,vib].forEach(sl=>{
-  sl.oninput=()=>{
-    currentH=hue.value;
-    currentS=sat.value;
-    currentV=vib.value;
+/* ---------------- SLIDERS ---------------- */
+[hue, sat, vib].forEach(sl => {
+  sl.oninput = () => {
+    currentH = hue.value;
+    currentS = sat.value;
+    currentV = vib.value;
 
     update();
     loadImages();
   };
 });
 
-/* IMAGES */
-function loadImages(){
-  gallery.innerHTML="";
-  camGallery.innerHTML="";
+/* ---------------- LOAD IMAGES ---------------- */
+function loadImages() {
+  gallery.innerHTML = "";
+  camGallery.innerHTML = "";
 
-  for(let i=0;i<12;i++){
-    let url=`https://picsum.photos/400?random=${Math.random()}`;
+  for (let i = 0; i < 12; i++) {
+    let url = `https://picsum.photos/400?random=${Math.random()}`;
 
-    let img=document.createElement("img");
-    img.crossOrigin="anonymous";
-    img.src=url;
-    img.onclick=()=>selectedImage=img;
+    let img = document.createElement("img");
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    img.onclick = () => (selectedImage = img);
 
     gallery.appendChild(img);
 
-    let camImg=document.createElement("img");
-    camImg.crossOrigin="anonymous";
-    camImg.src=url;
-    camImg.onclick=()=>selectedImage=camImg;
+    let camImg = document.createElement("img");
+    camImg.crossOrigin = "anonymous";
+    camImg.src = url;
+    camImg.onclick = () => (selectedImage = camImg);
 
     camGallery.appendChild(camImg);
   }
 }
 
-/* CAMERA + AI */
+/* ---------------- CAMERA + AI ---------------- */
 let segmentation;
 let camera;
 
@@ -105,49 +108,60 @@ document.getElementById("captureMood").onclick = () => {
   camera.start();
 };
 
-/* RENDER */
+/* ---------------- RENDER (FIXED BACKGROUND LOGIC) ---------------- */
 function onResults(results) {
   const ctx = canvas.getContext("2d");
 
   canvas.width = results.image.width;
   canvas.height = results.image.height;
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // BACKGROUND
-  if(selectedImage){
-    ctx.drawImage(selectedImage,0,0,canvas.width,canvas.height);
+  // 1️⃣ DRAW BACKGROUND IMAGE
+  if (selectedImage) {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // PERSON MASK
-  ctx.save();
-  ctx.globalCompositeOperation="destination-over";
-  ctx.drawImage(results.image,0,0);
-  ctx.restore();
+  // 2️⃣ DRAW PERSON ONLY (USING MASK)
+  ctx.globalCompositeOperation = "source-over";
 
-  ctx.globalCompositeOperation="destination-atop";
-  ctx.drawImage(results.segmentationMask,0,0);
+  // Draw person image
+  ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
-  ctx.globalCompositeOperation="source-over";
+  // Keep ONLY person pixels
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
 
-  // COLOR FILTER
-  ctx.fillStyle=`hsla(${currentH},${currentS}%,50%,${currentV/400})`;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // 3️⃣ RESET
+  ctx.globalCompositeOperation = "source-over";
+
+  // 4️⃣ COLOR FILTER
+  ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${currentV / 400})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-/* DOWNLOAD */
+/* ---------------- DOWNLOAD ---------------- */
 document.getElementById("download").onclick = () => {
-  const link=document.createElement("a");
-  link.download="chroma.png";
-  link.href=canvas.toDataURL("image/png");
-  link.click();
+  const link = document.createElement("a");
+  link.download = "chroma.png";
+
+  try {
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  } catch (e) {
+    alert("Download failed. Try again.");
+  }
 };
 
-/* CLOSE */
-document.getElementById("closeCam").onclick=()=>{
+/* ---------------- CLOSE ---------------- */
+document.getElementById("closeCam").onclick = () => {
   overlay.classList.remove("active");
 };
 
-document.getElementById("back").onclick=()=>{
+document.getElementById("back").onclick = () => {
   panel.classList.remove("active");
 };
