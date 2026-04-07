@@ -2,9 +2,8 @@ const grid = document.getElementById("grid");
 const panel = document.getElementById("panel");
 const preview = document.getElementById("preview");
 
-const hue = document.getElementById("hue");
-const sat = document.getElementById("sat");
-const light = document.getElementById("light");
+const hueSlider = document.getElementById("hue");
+const camHue = document.getElementById("camHue");
 
 const gallery = document.getElementById("gallery");
 const camGallery = document.getElementById("camGallery");
@@ -13,114 +12,111 @@ const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
-const camHue = document.getElementById("camHue");
+let currentH = 200;
+let selectedImage = null;
 
-let currentH=200,currentS=70,currentL=50;
-let selectedImage=null;
+/* BETTER COLOR GRID */
+for (let h = 0; h < 360; h += 2) {
+  for (let l = 30; l <= 70; l += 20) {
+    let color = `hsl(${h}, 70%, ${l}%)`;
 
-/* COLOR GRID (FIXED VARIETY) */
-for(let h=0;h<360;h+=4){
-  for(let s=40;s<=100;s+=30){
-    for(let l=30;l<=70;l+=20){
-      let color=`hsl(${h},${s}%,${l}%)`;
+    let div = document.createElement("div");
+    div.className = "color";
+    div.style.background = color;
 
-      let div=document.createElement("div");
-      div.className="color";
-      div.style.background=color;
+    div.onclick = () => {
+      currentH = h;
+      hueSlider.value = h;
+      camHue.value = h;
 
-      div.onclick=()=>{
-        currentH=h;
-        currentS=s;
-        currentL=l;
+      update();
+      loadImages();
+      panel.classList.add("active");
+    };
 
-        hue.value=h;
-        camHue.value=h;
-
-        update();
-        panel.classList.add("active");
-
-        loadImages();
-      };
-
-      grid.appendChild(div);
-    }
+    grid.appendChild(div);
   }
 }
 
-/* UPDATE */
-function update(){
-  preview.style.background=`hsl(${currentH},${currentS}%,${currentL}%)`;
+/* COLOR UPDATE */
+function update() {
+  preview.style.background = `hsl(${currentH},70%,50%)`;
 }
 
-/* SLIDERS */
-[hue].forEach(sl=>{
-  sl.oninput=()=>{
-    currentH=sl.value;
-    camHue.value=currentH;
-    update();
-    loadImages();
-  };
-});
+/* COLOR → KEYWORD */
+function getColorKeyword(h) {
+  if (h < 30) return "red";
+  if (h < 60) return "orange";
+  if (h < 90) return "yellow";
+  if (h < 150) return "green";
+  if (h < 210) return "blue";
+  if (h < 270) return "purple";
+  return "pink";
+}
 
-camHue.oninput=()=>{
-  currentH=camHue.value;
-};
+/* LOAD IMAGES BASED ON COLOR */
+function loadImages() {
+  gallery.innerHTML = "";
+  camGallery.innerHTML = "";
 
-/* LOAD IMAGES (FIXED SOURCE) */
-function loadImages(){
-  gallery.innerHTML="";
-  camGallery.innerHTML="";
+  let keyword = getColorKeyword(currentH);
 
-  for(let i=0;i<12;i++){
-    let imgUrl=`https://picsum.photos/200/200?random=${currentH+i}`;
+  for (let i = 0; i < 12; i++) {
+    let url = `https://source.unsplash.com/200x200/?${keyword},aesthetic&sig=${i + currentH}`;
 
-    let img=document.createElement("img");
-    img.src=imgUrl;
-    img.onclick=()=>selectedImage=img;
+    let img = document.createElement("img");
+    img.src = url;
+    img.onclick = () => selectedImage = img;
 
     gallery.appendChild(img);
 
-    let camImg=document.createElement("img");
-    camImg.src=imgUrl;
-    camImg.onclick=()=>selectedImage=camImg;
+    let camImg = document.createElement("img");
+    camImg.src = url;
+    camImg.onclick = () => selectedImage = camImg;
 
     camGallery.appendChild(camImg);
   }
 }
 
-/* BACK */
-document.getElementById("back").onclick=()=>{
-  panel.classList.remove("active");
+/* SLIDERS */
+hueSlider.oninput = () => {
+  currentH = hueSlider.value;
+  camHue.value = currentH;
+  update();
+  loadImages();
+};
+
+camHue.oninput = () => {
+  currentH = camHue.value;
 };
 
 /* CAMERA */
-document.getElementById("captureMood").onclick=()=>{
+document.getElementById("captureMood").onclick = () => {
   overlay.classList.add("active");
 
-  navigator.mediaDevices.getUserMedia({video:true})
-  .then(stream=>video.srcObject=stream);
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => video.srcObject = stream);
 };
 
 /* DRAW LOOP */
-function draw(){
-  if(video.videoWidth){
-    let ctx=canvas.getContext("2d");
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
+function draw() {
+  if (video.videoWidth) {
+    let ctx = canvas.getContext("2d");
 
-    ctx.drawImage(video,0,0);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
-    /* BACKGROUND IMAGE */
-    if(selectedImage){
-      let img=new Image();
-      img.src=selectedImage.src;
-      ctx.globalAlpha=0.25;
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    ctx.drawImage(video, 0, 0);
+
+    if (selectedImage) {
+      let img = new Image();
+      img.src = selectedImage.src;
+      ctx.globalAlpha = 0.2;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     }
 
-    /* COLOR FILTER */
-    ctx.fillStyle=`hsla(${currentH},80%,50%,0.25)`;
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = `hsla(${currentH},70%,50%,0.2)`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   requestAnimationFrame(draw);
@@ -128,14 +124,9 @@ function draw(){
 draw();
 
 /* DOWNLOAD */
-document.getElementById("download").onclick=()=>{
-  let link=document.createElement("a");
-  link.download="chroma.png";
-  link.href=canvas.toDataURL();
+document.getElementById("download").onclick = () => {
+  let link = document.createElement("a");
+  link.download = "chroma.png";
+  link.href = canvas.toDataURL();
   link.click();
-};
-
-/* CLOSE */
-document.getElementById("closeCam").onclick=()=>{
-  overlay.classList.remove("active");
 };
