@@ -13,27 +13,26 @@ const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
-const captureBtn = document.getElementById("captureBtn");
-const downloadBtn = document.getElementById("downloadBtn");
+const downloadBtn = document.getElementById("download");
 
 let currentH = 200, currentS = 70, currentV = 50;
 let selectedImage = null;
-let lastCaptured = null;
+let capturedImage = null;
 
-/* ---------------- COLOR KEYWORDS ---------------- */
+/* ---------------- COLOR KEYWORD ---------------- */
 function getColorKeyword(h) {
-  if (h < 30) return "red aesthetic minimal";
-  if (h < 60) return "orange aesthetic warm";
-  if (h < 90) return "yellow aesthetic soft";
-  if (h < 150) return "green nature aesthetic";
-  if (h < 210) return "blue aesthetic calm";
-  if (h < 270) return "purple aesthetic dreamy";
-  if (h < 330) return "pink aesthetic soft";
-  return "red aesthetic bold";
+  if (h < 30) return "red";
+  if (h < 60) return "orange";
+  if (h < 90) return "yellow";
+  if (h < 150) return "green";
+  if (h < 210) return "blue";
+  if (h < 270) return "purple";
+  if (h < 330) return "pink";
+  return "red";
 }
 
-/* ---------------- GRID ---------------- */
-for (let i = 0; i < 600; i++) {
+/* ---------------- COLOR GRID ---------------- */
+for (let i = 0; i < 700; i++) {
   let h = Math.random() * 360;
   let s = 40 + Math.random() * 60;
   let l = 30 + Math.random() * 40;
@@ -45,7 +44,6 @@ for (let i = 0; i < 600; i++) {
   div.onclick = () => {
     currentH = h;
     currentS = s;
-
     hue.value = h;
     sat.value = s;
 
@@ -74,7 +72,7 @@ function update() {
   };
 });
 
-/* ---------------- FIXED IMAGE LOADING ---------------- */
+/* ---------------- LOAD IMAGES (FIXED) ---------------- */
 function loadImages() {
   gallery.innerHTML = "";
   camGallery.innerHTML = "";
@@ -82,28 +80,33 @@ function loadImages() {
   let keyword = getColorKeyword(currentH);
 
   for (let i = 0; i < 12; i++) {
-    let url = `https://images.unsplash.com/photo-1600000000000?auto=format&fit=crop&w=400&q=80&sig=${Math.random()}`;
+    let url = `https://images.unsplash.com/photo-${1000000000000 + Math.floor(Math.random()*1000000)}?auto=format&fit=crop&w=400&q=80`;
 
     let img = document.createElement("img");
     img.src = url;
+    img.crossOrigin = "anonymous";
     img.onclick = () => (selectedImage = img);
 
     gallery.appendChild(img);
 
     let camImg = document.createElement("img");
     camImg.src = url;
+    camImg.crossOrigin = "anonymous";
     camImg.onclick = () => (selectedImage = camImg);
 
     camGallery.appendChild(camImg);
   }
 }
 
-/* ---------------- CAMERA + AI ---------------- */
+/* ---------------- CAMERA ---------------- */
 let segmentation;
 let camera;
 
 document.getElementById("captureMood").onclick = () => {
   overlay.classList.add("active");
+
+  downloadBtn.style.opacity = "0.5";
+  capturedImage = null;
 
   segmentation = new SelfieSegmentation({
     locateFile: file =>
@@ -116,9 +119,7 @@ document.getElementById("captureMood").onclick = () => {
   camera = new Camera(video, {
     onFrame: async () => {
       await segmentation.send({ image: video });
-    },
-    width: 640,
-    height: 480
+    }
   });
 
   camera.start();
@@ -133,6 +134,7 @@ function onResults(results) {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // BACKGROUND
   if (selectedImage) {
     ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
   } else {
@@ -140,26 +142,27 @@ function onResults(results) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
+  // PERSON
   ctx.save();
   ctx.drawImage(results.image, 0, 0);
-
   ctx.globalCompositeOperation = "destination-in";
   ctx.drawImage(results.segmentationMask, 0, 0);
   ctx.restore();
 
   ctx.globalCompositeOperation = "source-over";
 
+  // COLOR
   ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${currentV / 400})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-/* ---------------- TIMER CAPTURE ---------------- */
-captureBtn.onclick = () => {
+/* ---------------- TIMER ---------------- */
+function startTimer() {
   let count = 5;
   const ctx = canvas.getContext("2d");
 
-  const interval = setInterval(() => {
-    ctx.font = "60px sans-serif";
+  let interval = setInterval(() => {
+    ctx.font = "80px sans-serif";
     ctx.fillStyle = "white";
     ctx.fillText(count, canvas.width / 2 - 20, canvas.height / 2);
 
@@ -167,25 +170,29 @@ captureBtn.onclick = () => {
 
     if (count < 0) {
       clearInterval(interval);
-      lastCaptured = canvas.toDataURL("image/png");
+      captureFrame();
     }
   }, 1000);
-};
+}
 
-/* ---------------- DOWNLOAD ---------------- */
+function captureFrame() {
+  capturedImage = canvas.toDataURL("image/png");
+  downloadBtn.style.opacity = "1";
+}
+
+/* ---------------- BUTTON LOGIC ---------------- */
+document.getElementById("captureBtn")?.addEventListener("click", startTimer);
+
 downloadBtn.onclick = () => {
-  if (!lastCaptured) {
-    alert("Capture first!");
-    return;
-  }
+  if (!capturedImage) return;
 
   const link = document.createElement("a");
   link.download = "chroma.png";
-  link.href = lastCaptured;
+  link.href = capturedImage;
   link.click();
 };
 
-/* CLOSE */
+/* ---------------- CLOSE ---------------- */
 document.getElementById("closeCam").onclick = () => {
   overlay.classList.remove("active");
 };
