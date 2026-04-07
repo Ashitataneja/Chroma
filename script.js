@@ -6,10 +6,6 @@ const hue = document.getElementById("hue");
 const sat = document.getElementById("sat");
 const vib = document.getElementById("vib");
 
-const camHue = document.getElementById("camHue");
-const camSat = document.getElementById("camSat");
-const camVib = document.getElementById("camVib");
-
 const gallery = document.getElementById("gallery");
 const camGallery = document.getElementById("camGallery");
 
@@ -40,23 +36,15 @@ div.style.background=`hsl(${h},70%,50%)`;
 
 div.onclick=()=>{
 currentH=h;
-syncSliders();
+hue.value=h;
+
 update();
 loadImages();
+
 panel.classList.add("active");
 };
 
 grid.appendChild(div);
-}
-
-/* SYNC */
-function syncSliders(){
-hue.value=currentH;
-camHue.value=currentH;
-sat.value=currentS;
-camSat.value=currentS;
-vib.value=currentV;
-camVib.value=currentV;
 }
 
 /* UPDATE */
@@ -70,18 +58,9 @@ sl.oninput=()=>{
 currentH=hue.value;
 currentS=sat.value;
 currentV=vib.value;
-syncSliders();
+
 update();
 loadImages();
-};
-});
-
-[camHue,camSat,camVib].forEach(sl=>{
-sl.oninput=()=>{
-currentH=camHue.value;
-currentS=camSat.value;
-currentV=camVib.value;
-syncSliders();
 };
 });
 
@@ -93,7 +72,7 @@ camGallery.innerHTML="";
 let keyword=getColorName(currentH)+" aesthetic";
 
 for(let i=0;i<12;i++){
-let url=`https://picsum.photos/300?random=${Math.random()}`;
+let url=`https://picsum.photos/400?random=${Math.random()}`;
 
 let img=document.createElement("img");
 img.src=url;
@@ -112,6 +91,7 @@ camGallery.appendChild(camImg);
 /* CAMERA */
 document.getElementById("captureMood").onclick=()=>{
 overlay.classList.add("active");
+
 navigator.mediaDevices.getUserMedia({video:true})
 .then(stream=>video.srcObject=stream);
 };
@@ -120,21 +100,27 @@ navigator.mediaDevices.getUserMedia({video:true})
 function draw(){
 if(video.videoWidth){
 let ctx=canvas.getContext("2d");
+
 canvas.width=video.videoWidth;
 canvas.height=video.videoHeight;
 
+/* BACKGROUND IMAGE (FULL) */
+if(selectedImage){
+let bg=new Image();
+bg.src=selectedImage.src;
+ctx.globalAlpha=1;
+ctx.drawImage(bg,0,0,canvas.width,canvas.height);
+}
+
+/* CAMERA ON TOP */
+ctx.globalAlpha=0.9;
 ctx.drawImage(video,0,0);
 
-if(selectedImage){
-let img=new Image();
-img.src=selectedImage.src;
-ctx.globalAlpha=0.2;
-ctx.drawImage(img,0,0,canvas.width,canvas.height);
-}
-
-ctx.fillStyle=`hsla(${currentH},${currentS}%,50%,${currentV/300})`;
+/* COLOR FILTER */
+ctx.fillStyle=`hsla(${currentH},${currentS}%,50%,${currentV/400})`;
 ctx.fillRect(0,0,canvas.width,canvas.height);
 }
+
 requestAnimationFrame(draw);
 }
 draw();
