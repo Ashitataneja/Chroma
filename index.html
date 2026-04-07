@@ -7,25 +7,20 @@
 <style>
 body { margin:0; font-family:-apple-system; background:#111; }
 
-/* PERFECT GRID */
+/* GRID */
 #grid {
   display:grid;
-  grid-template-columns:repeat(20, 1fr);
-  grid-template-rows:repeat(20, 1fr);
+  grid-template-columns:repeat(20,1fr);
+  grid-template-rows:repeat(20,1fr);
   width:100vw;
   height:100vh;
 }
-.color {
-  width:100%;
-  height:100%;
-  cursor:pointer;
-}
+.color { width:100%; height:100%; cursor:pointer; }
 
 /* PANEL */
 #panel {
   position:fixed;
-  right:0;
-  top:0;
+  right:0; top:0;
   width:360px;
   height:100%;
   background:white;
@@ -33,14 +28,11 @@ body { margin:0; font-family:-apple-system; background:#111; }
   transition:.3s;
   display:flex;
   flex-direction:column;
+  z-index:10;
 }
 #panel.active { transform:translateX(0); }
 
-#content {
-  flex:1;
-  overflow:auto;
-  padding:20px;
-}
+#content { flex:1; overflow:auto; padding:20px; }
 
 #back { font-size:20px; cursor:pointer; }
 
@@ -51,7 +43,6 @@ body { margin:0; font-family:-apple-system; background:#111; }
 }
 
 label { font-size:12px; margin-top:10px; display:block; }
-
 input { width:100%; }
 
 /* GALLERY */
@@ -59,7 +50,6 @@ input { width:100%; }
   display:grid;
   grid-template-columns:repeat(3,1fr);
   gap:6px;
-  margin-top:10px;
 }
 #gallery img {
   width:100%;
@@ -91,28 +81,49 @@ input { width:100%; }
   display:none;
   align-items:center;
   justify-content:center;
+  z-index:20;
 }
 #overlay.active { display:flex; }
 
 #modal {
-  width:90%;
+  width:95%;
   max-width:420px;
   height:80vh;
   background:black;
   border-radius:12px;
-  display:flex;
-  flex-direction:column;
   overflow:hidden;
   position:relative;
+  display:flex;
+  flex-direction:column;
 }
 
+/* VIDEO + CANVAS */
+#videoWrapper {
+  position:relative;
+  flex:1;
+}
 video, canvas {
+  position:absolute;
   width:100%;
   height:100%;
   object-fit:cover;
 }
 
-/* TOP STRIP */
+/* CLOSE BUTTON */
+#closeCam {
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  border:none;
+  background:white;
+  font-size:16px;
+  z-index:5;
+}
+
+/* IMAGE STRIP */
 #camGallery {
   display:flex;
   gap:8px;
@@ -126,30 +137,27 @@ video, canvas {
   border-radius:8px;
 }
 
-/* COLOR BAR */
-#colorBar {
-  height:15px;
-  background:linear-gradient(to right, red, yellow, green, cyan, blue, magenta, red);
+/* SLIDERS */
+#cameraControls {
+  padding:10px;
+  background:black;
 }
-#camHue { width:100%; }
+#cameraControls input {
+  width:100%;
+}
 
-/* BUTTON */
-#download {
+/* BUTTONS */
+#controls {
+  display:flex;
+  gap:8px;
+  padding:10px;
+}
+#controls button {
+  flex:1;
   padding:10px;
   border:none;
   background:white;
-  margin:10px;
   border-radius:6px;
-}
-
-#closeCam {
-  position:absolute;
-  top:10px;
-  right:10px;
-  border:none;
-  background:white;
-  border-radius:50%;
-  width:30px;
 }
 </style>
 </head>
@@ -160,6 +168,7 @@ video, canvas {
 
 <div id="panel">
   <div id="content">
+
     <div id="back">←</div>
 
     <div id="preview"></div>
@@ -167,8 +176,15 @@ video, canvas {
     <label>Hue</label>
     <input type="range" id="hue" min="0" max="360">
 
+    <label>Saturation</label>
+    <input type="range" id="sat" min="0" max="100">
+
+    <label>Vibrance</label>
+    <input type="range" id="vib" min="0" max="100">
+
     <h4>Inspiration</h4>
     <div id="gallery"></div>
+
   </div>
 
   <div id="bottom">
@@ -180,17 +196,25 @@ video, canvas {
 <div id="overlay">
   <div id="modal">
 
-    <video id="video" autoplay></video>
-    <canvas id="canvas"></canvas>
+    <div id="videoWrapper">
+      <video id="video" autoplay></video>
+      <canvas id="canvas"></canvas>
+    </div>
 
     <button id="closeCam">✕</button>
 
     <div id="camGallery"></div>
 
-    <div id="colorBar"></div>
-    <input type="range" id="camHue" min="0" max="360">
+    <div id="cameraControls">
+      <input type="range" id="camHue" min="0" max="360">
+      <input type="range" id="camSat" min="0" max="100">
+      <input type="range" id="camVib" min="0" max="100">
+    </div>
 
-    <button id="download">Download</button>
+    <div id="controls">
+      <button id="capture">Capture</button>
+      <button id="download">Download</button>
+    </div>
 
   </div>
 </div>
