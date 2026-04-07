@@ -13,25 +13,15 @@ const overlay = document.getElementById("overlay");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 
+const captureBtn = document.getElementById("captureBtn");
 const downloadBtn = document.getElementById("download");
 
 let currentH = 200, currentS = 70, currentV = 50;
 let selectedImage = null;
-let capturedImage = null;
+let capturedFrame = null;
+let isCaptured = false;
 
-/* ---------------- COLOR KEYWORD ---------------- */
-function getColorKeyword(h) {
-  if (h < 30) return "red";
-  if (h < 60) return "orange";
-  if (h < 90) return "yellow";
-  if (h < 150) return "green";
-  if (h < 210) return "blue";
-  if (h < 270) return "purple";
-  if (h < 330) return "pink";
-  return "red";
-}
-
-/* ---------------- COLOR GRID ---------------- */
+/* ---------------- GRID ---------------- */
 for (let i = 0; i < 700; i++) {
   let h = Math.random() * 360;
   let s = 40 + Math.random() * 60;
@@ -44,6 +34,7 @@ for (let i = 0; i < 700; i++) {
   div.onclick = () => {
     currentH = h;
     currentS = s;
+
     hue.value = h;
     sat.value = s;
 
@@ -77,10 +68,8 @@ function loadImages() {
   gallery.innerHTML = "";
   camGallery.innerHTML = "";
 
-  let keyword = getColorKeyword(currentH);
-
   for (let i = 0; i < 12; i++) {
-    let url = `https://images.unsplash.com/photo-${1000000000000 + Math.floor(Math.random()*1000000)}?auto=format&fit=crop&w=400&q=80`;
+    let url = `https://picsum.photos/400?random=${Math.random()}`;
 
     let img = document.createElement("img");
     img.src = url;
@@ -105,8 +94,8 @@ let camera;
 document.getElementById("captureMood").onclick = () => {
   overlay.classList.add("active");
 
+  isCaptured = false;
   downloadBtn.style.opacity = "0.5";
-  capturedImage = null;
 
   segmentation = new SelfieSegmentation({
     locateFile: file =>
@@ -118,7 +107,9 @@ document.getElementById("captureMood").onclick = () => {
 
   camera = new Camera(video, {
     onFrame: async () => {
-      await segmentation.send({ image: video });
+      if (!isCaptured) {
+        await segmentation.send({ image: video });
+      }
     }
   });
 
@@ -127,6 +118,8 @@ document.getElementById("captureMood").onclick = () => {
 
 /* ---------------- RENDER ---------------- */
 function onResults(results) {
+  if (isCaptured) return;
+
   const ctx = canvas.getContext("2d");
 
   canvas.width = results.image.width;
@@ -142,16 +135,14 @@ function onResults(results) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // PERSON
+  // PERSON CUTOUT
   ctx.save();
   ctx.drawImage(results.image, 0, 0);
   ctx.globalCompositeOperation = "destination-in";
   ctx.drawImage(results.segmentationMask, 0, 0);
   ctx.restore();
 
-  ctx.globalCompositeOperation = "source-over";
-
-  // COLOR
+  // COLOR TINT (helps match image to color)
   ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${currentV / 400})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
@@ -162,9 +153,12 @@ function startTimer() {
   const ctx = canvas.getContext("2d");
 
   let interval = setInterval(() => {
-    ctx.font = "80px sans-serif";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = "100px sans-serif";
     ctx.fillStyle = "white";
-    ctx.fillText(count, canvas.width / 2 - 20, canvas.height / 2);
+    ctx.textAlign = "center";
+    ctx.fillText(count, canvas.width / 2, canvas.height / 2);
 
     count--;
 
@@ -175,20 +169,36 @@ function startTimer() {
   }, 1000);
 }
 
+/* ---------------- CAPTURE ---------------- */
 function captureFrame() {
-  capturedImage = canvas.toDataURL("image/png");
+  isCaptured = true;
+
+  capturedFrame = canvas.toDataURL("image/png");
+
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+  };
+
+  img.src = capturedFrame;
+
   downloadBtn.style.opacity = "1";
 }
 
-/* ---------------- BUTTON LOGIC ---------------- */
-document.getElementById("captureBtn")?.addEventListener("click", startTimer);
+/* ---------------- BUTTONS ---------------- */
+captureBtn.onclick = () => {
+  startTimer();
+};
 
 downloadBtn.onclick = () => {
-  if (!capturedImage) return;
+  if (!capturedFrame) return;
 
   const link = document.createElement("a");
   link.download = "chroma.png";
-  link.href = capturedImage;
+  link.href = capturedFrame;
   link.click();
 };
 
