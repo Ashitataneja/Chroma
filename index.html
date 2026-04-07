@@ -93,15 +93,9 @@ input { width:100%; }
   border-radius:12px;
   overflow:hidden;
   position:relative;
-  display:flex;
-  flex-direction:column;
 }
 
 /* VIDEO + CANVAS */
-#videoWrapper {
-  position:relative;
-  flex:1;
-}
 video, canvas {
   position:absolute;
   width:100%;
@@ -109,7 +103,7 @@ video, canvas {
   object-fit:cover;
 }
 
-/* CLOSE BUTTON */
+/* CLOSE */
 #closeCam {
   position:absolute;
   top:10px;
@@ -119,41 +113,33 @@ video, canvas {
   border-radius:50%;
   border:none;
   background:white;
-  font-size:16px;
   z-index:5;
 }
 
 /* IMAGE STRIP */
 #camGallery {
+  position:absolute;
+  bottom:60px;
   display:flex;
   gap:8px;
   overflow-x:auto;
   padding:8px;
-  background:black;
+  width:100%;
 }
 #camGallery img {
   width:60px;
   height:60px;
   border-radius:8px;
+  object-fit:cover;
+  cursor:pointer;
 }
 
-/* SLIDERS */
-#cameraControls {
-  padding:10px;
-  background:black;
-}
-#cameraControls input {
-  width:100%;
-}
-
-/* BUTTONS */
-#controls {
-  display:flex;
-  gap:8px;
-  padding:10px;
-}
-#controls button {
-  flex:1;
+/* BUTTON */
+#download {
+  position:absolute;
+  bottom:10px;
+  left:10px;
+  right:10px;
   padding:10px;
   border:none;
   background:white;
@@ -196,25 +182,14 @@ video, canvas {
 <div id="overlay">
   <div id="modal">
 
-    <div id="videoWrapper">
-      <video id="video" autoplay></video>
-      <canvas id="canvas"></canvas>
-    </div>
+    <video id="video" autoplay></video>
+    <canvas id="canvas"></canvas>
 
     <button id="closeCam">✕</button>
 
     <div id="camGallery"></div>
 
-    <div id="cameraControls">
-      <input type="range" id="camHue" min="0" max="360">
-      <input type="range" id="camSat" min="0" max="100">
-      <input type="range" id="camVib" min="0" max="100">
-    </div>
-
-    <div id="controls">
-      <button id="capture">Capture</button>
-      <button id="download">Download</button>
-    </div>
+    <button id="download">Download</button>
 
   </div>
 </div>
