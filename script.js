@@ -31,24 +31,35 @@ const downloadBtn = document.getElementById('downloadBtn');
 const noBgBtn     = document.getElementById('noBgBtn');
 const toast       = document.getElementById('toast');
 
-/* ─── State ─────────────────────────────── */
+/* ─── Colour state ──────────────────────── */
 let H = 200, S = 70, V = 50;
-let selectedBgImage = null;   // HTMLImageElement chosen as background
+
+/* ─── Gallery state ─────────────────────── */
+let selectedBgImage = null;
+let loadToken = 0;
+
+/* ─── Capture state ─────────────────────── */
 let capturedDataURL = null;
 let isCaptured      = false;
 let isCountingDown  = false;
+let countdownId     = null;
 
-let segmentation  = null;
-let mpCamera      = null;
-let countdownId   = null;
-
-/* Secondary off-screen canvas — created once, reused every frame.
-   This is key: OffscreenCanvas can silently fail on re-init in some
-   browsers. A regular <canvas> not in the DOM is perfectly reliable. */
+/* ─── Off-screen canvas (created once, reused every frame) ─ */
 const offCanvas = document.createElement('canvas');
 const offCtx    = offCanvas.getContext('2d');
 
-/* ─── Toast ─────────────────────────────── */
+/* ─── MediaPipe — created ONCE, never destroyed ─────────────
+   Calling segmentation.reset() corrupts the internal WASM state
+   so the instance can never send frames again. We keep one
+   instance alive for the whole page lifetime and only
+   stop/restart the camera stream between sessions.             */
+let segmentation = null;
+let mpCamera     = null;
+let camReady     = false; // true after first frame arrives
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
 let toastTimer = null;
 function showToast(msg, ms = 2400) {
   clearTimeout(toastTimer);
@@ -57,7 +68,9 @@ function showToast(msg, ms = 2400) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
 }
 
-/* ─── Colour helpers ─────────────────────── */
+/* ═══════════════════════════════════════════
+   COLOUR HELPERS
+═══════════════════════════════════════════ */
 function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const k = n => (n + h / 30) % 12;
@@ -83,9 +96,9 @@ function colorLabel(h) {
    GRID
 ═══════════════════════════════════════════ */
 (function buildGrid() {
-  const COLS  = 35;
-  const rows  = Math.ceil(window.innerHeight / (window.innerWidth / COLS));
-  const frag  = document.createDocumentFragment();
+  const COLS = 35;
+  const rows = Math.ceil(window.innerHeight / (window.innerWidth / COLS));
+  const frag = document.createDocumentFragment();
 
   for (let i = 0; i < COLS * rows; i++) {
     const h = Math.random() * 360;
@@ -112,17 +125,16 @@ function colorLabel(h) {
 })();
 
 /* ═══════════════════════════════════════════
-   PANEL — preview + sliders
+   PANEL UI
 ═══════════════════════════════════════════ */
 function syncUI() {
   const hex = hslToHex(H, S, 50);
   swatch.style.background = `hsl(${H},${S}%,50%)`;
-  colorName.textContent = colorLabel(H);
-  colorHex.textContent  = hex.toUpperCase();
-
-  hueVal.textContent = Math.round(H) + '°';
-  satVal.textContent = Math.round(S) + '%';
-  vibVal.textContent = Math.round(V) + '%';
+  colorName.textContent   = colorLabel(H);
+  colorHex.textContent    = hex.toUpperCase();
+  hueVal.textContent      = Math.round(H) + '°';
+  satVal.textContent      = Math.round(S) + '%';
+  vibVal.textContent      = Math.round(V) + '%';
 
   hueSlider.style.background =
     'linear-gradient(to right,hsl(0,80%,50%),hsl(60,80%,50%),hsl(120,80%,50%),hsl(180,80%,50%),hsl(240,80%,50%),hsl(300,80%,50%),hsl(360,80%,50%))';
@@ -149,15 +161,12 @@ document.getElementById('back').addEventListener('click', () =>
 /* ═══════════════════════════════════════════
    GALLERY
 ═══════════════════════════════════════════ */
-let loadToken = 0;
-
 function loadGallery() {
   const token = ++loadToken;
   gallery.innerHTML    = '';
   camGallery.innerHTML = '';
   selectedBgImage      = null;
 
-  // Re-add the "None" chip
   camGallery.appendChild(noBgBtn);
   noBgBtn.classList.add('selected');
 
@@ -165,128 +174,104 @@ function loadGallery() {
   const seeds = Array.from({ length: COUNT }, () =>
     Math.floor(Math.random() * 9000) + 1000);
 
-  // Skeletons
   for (let i = 0; i < COUNT; i++) {
-    const sk  = skeletonEl(); gallery.appendChild(sk);
-    const sk2 = skeletonEl(); camGallery.appendChild(sk2);
+    gallery.appendChild(skelEl());
+    camGallery.appendChild(skelEl());
   }
 
   seeds.forEach((seed, i) => {
     const url = `https://picsum.photos/seed/${seed}/400/300`;
-
-    loadImg(url, img => {
-      if (token !== loadToken) return; // stale load
-      replaceChild(gallery,    i,     makeThumb(img, 'main'));
-      replaceChild(camGallery, i + 1, makeThumb(img, 'cam'));
-    });
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (token !== loadToken) return;
+      swap(gallery,    i,     thumb(img));
+      swap(camGallery, i + 1, thumb(img));
+    };
+    img.src = url;
   });
 }
 
-function skeletonEl() {
+function skelEl() {
   const d = document.createElement('div');
   d.className = 'img-skel';
   return d;
 }
 
-function loadImg(url, cb) {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload  = () => cb(img);
-  img.onerror = () => {};
-  img.src = url;
-}
-
-function replaceChild(parent, idx, newEl) {
+function swap(parent, idx, el) {
   const child = parent.children[idx];
-  if (child) child.replaceWith(newEl);
+  if (child) child.replaceWith(el);
 }
 
-function makeThumb(img, type) {
+function thumb(img) {
   const el = document.createElement('img');
   el.src = img.src;
   el.crossOrigin = 'anonymous';
-
   el.addEventListener('click', () => {
-    // Deselect all
     document.querySelectorAll('#gallery img.selected, #camGallery img.selected')
       .forEach(x => x.classList.remove('selected'));
     noBgBtn.classList.remove('selected');
     el.classList.add('selected');
     selectedBgImage = el;
   });
-
   return el;
 }
 
-/* ═══════════════════════════════════════════
-   OPEN CAMERA
-═══════════════════════════════════════════ */
-document.getElementById('captureMood').addEventListener('click', openCamera);
-
-function openCamera() {
-  // Show loading FIRST so the user sees the spinner, not a black flash
-  overlay.classList.add('active');
-  camLoading.classList.remove('hide');
-  resetCamState();
-  setTimeout(startCamera, 80);
-}
-
-function resetCamState() {
-  // Kill any running stream first
-  stopCamera();
-  clearCountdown();
-  isCaptured      = false;
-  isCountingDown  = false;
-  capturedDataURL = null;
-
-  captureBtn.disabled    = false;
-  captureBtn.textContent = 'Capture';
-  retakeBtn.classList.remove('show');
-  downloadBtn.classList.remove('show');
-  timerDisp.classList.remove('show');
-
-  // Clear canvas to transparent (loading screen covers it anyway)
-  const ctx = canvas.getContext('2d');
-  canvas.width  = 640;
-  canvas.height = 480;
-  ctx.clearRect(0, 0, 640, 480);
-}
+noBgBtn.addEventListener('click', () => {
+  document.querySelectorAll('#gallery img.selected, #camGallery img.selected')
+    .forEach(x => x.classList.remove('selected'));
+  noBgBtn.classList.add('selected');
+  selectedBgImage = null;
+});
 
 /* ═══════════════════════════════════════════
-   START CAMERA + MEDIAPIPE
+   MEDIAPIPE — init ONCE on page load
+   We never call segmentation.reset() or
+   re-create the instance. Only the camera
+   stream is stopped and restarted.
 ═══════════════════════════════════════════ */
-function startCamera() {
-  // Fully tear down any previous session
-  stopCamera();
-
+function initSegmentation() {
   segmentation = new SelfieSegmentation({
     locateFile: f =>
       `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}`
   });
   segmentation.setOptions({ modelSelection: 1 });
   segmentation.onResults(onFrame);
+}
+
+/* ─── Start only the camera stream ─────── */
+function startStream() {
+  // Stop any existing stream first (does NOT touch segmentation)
+  stopStream();
+
+  isCaptured     = false;
+  isCountingDown = false;
+  camReady       = false;
 
   mpCamera = new Camera(video, {
     onFrame: async () => {
       if (isCaptured || !segmentation) return;
-      try { await segmentation.send({ image: video }); }
-      catch (_) {}
+      try {
+        await segmentation.send({ image: video });
+      } catch (_) {}
     },
     width: 640,
     height: 480,
   });
 
-  mpCamera.start()
-    .catch(err => {
-      showToast('Camera access denied.');
-      overlay.classList.remove('active');
-      console.error(err);
-    });
+  mpCamera.start().catch(err => {
+    showToast('Camera access denied.');
+    overlay.classList.remove('active');
+    console.error(err);
+  });
 }
 
-function stopCamera() {
-  if (mpCamera)    { mpCamera.stop();       mpCamera    = null; }
-  if (segmentation){ segmentation.reset();  segmentation = null; }
+/* ─── Stop only the camera stream ──────── */
+function stopStream() {
+  if (mpCamera) {
+    mpCamera.stop();
+    mpCamera = null;
+  }
   if (video.srcObject) {
     video.srcObject.getTracks().forEach(t => t.stop());
     video.srcObject = null;
@@ -295,72 +280,104 @@ function stopCamera() {
 
 /* ═══════════════════════════════════════════
    PER-FRAME RENDER
-   The correct compositing order:
-     1. Draw selected background image (stretched to canvas)
-     2. Isolate the person from the camera using the segmentation mask
-        — do this on offCanvas so we can composite cleanly
-     3. Composite person (mirrored) on top of background
-     4. Apply colour tint overlay at low opacity
 ═══════════════════════════════════════════ */
 function onFrame(results) {
+  // If captured, do nothing — canvas holds the frozen photo
   if (isCaptured) return;
 
-  // Hide loading screen the moment the first real frame arrives
-  if (!camLoading.classList.contains('hide')) {
+  // Hide loading spinner on very first rendered frame
+  if (!camReady) {
+    camReady = true;
     camLoading.classList.add('hide');
   }
 
-  const W = results.image.width;
-  const H_px = results.image.height;
+  const W  = results.image.width;
+  const Hh = results.image.height;
 
-  // Resize both canvases once if needed
-  if (canvas.width !== W || canvas.height !== H_px) {
-    canvas.width  = W;
-    canvas.height = H_px;
-  }
-  if (offCanvas.width !== W || offCanvas.height !== H_px) {
-    offCanvas.width  = W;
-    offCanvas.height = H_px;
-  }
+  if (canvas.width  !== W)  canvas.width  = W;
+  if (canvas.height !== Hh) canvas.height = Hh;
+  if (offCanvas.width  !== W)  offCanvas.width  = W;
+  if (offCanvas.height !== Hh) offCanvas.height = Hh;
 
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H_px);
+  ctx.clearRect(0, 0, W, Hh);
 
-  /* ── Step 1: Background ── */
-  if (selectedBgImage &&
-      selectedBgImage.complete &&
-      selectedBgImage.naturalWidth > 0) {
-    ctx.drawImage(selectedBgImage, 0, 0, W, H_px);
+  /* 1 — Background */
+  if (selectedBgImage?.complete && selectedBgImage.naturalWidth > 0) {
+    ctx.drawImage(selectedBgImage, 0, 0, W, Hh);
   } else {
-    // Solid colour fallback based on current mood hue
-    ctx.fillStyle = `hsl(${H}, ${Math.min(S, 60)}%, 12%)`;
-    ctx.fillRect(0, 0, W, H_px);
+    ctx.fillStyle = `hsl(${H},${Math.min(S, 55)}%,11%)`;
+    ctx.fillRect(0, 0, W, Hh);
   }
 
-  /* ── Step 2: Isolate person on offCanvas ── */
-  offCtx.clearRect(0, 0, W, H_px);
-  // Draw raw camera frame
-  offCtx.drawImage(results.image, 0, 0, W, H_px);
-  // Multiply alpha by mask — keeps only where mask is white (person)
+  /* 2 — Isolate person on offCanvas */
+  offCtx.clearRect(0, 0, W, Hh);
+  offCtx.drawImage(results.image, 0, 0, W, Hh);
   offCtx.globalCompositeOperation = 'destination-in';
-  offCtx.drawImage(results.segmentationMask, 0, 0, W, H_px);
-  offCtx.globalCompositeOperation = 'source-over'; // reset
+  offCtx.drawImage(results.segmentationMask, 0, 0, W, Hh);
+  offCtx.globalCompositeOperation = 'source-over';
 
-  /* ── Step 3: Composite person mirrored onto main canvas ── */
+  /* 3 — Composite person (mirrored) onto main canvas */
   ctx.save();
   ctx.translate(W, 0);
-  ctx.scale(-1, 1); // horizontal mirror
-  ctx.drawImage(offCanvas, 0, 0, W, H_px);
+  ctx.scale(-1, 1);
+  ctx.drawImage(offCanvas, 0, 0, W, Hh);
   ctx.restore();
 
-  /* ── Step 4: Colour tint ── */
-  const tintAlpha = (V / 100) * 0.3; // max 30%
-  ctx.fillStyle = `hsla(${H}, ${S}%, 55%, ${tintAlpha})`;
-  ctx.fillRect(0, 0, W, H_px);
+  /* 4 — Mood colour tint */
+  ctx.fillStyle = `hsla(${H},${S}%,55%,${(V / 100) * 0.28})`;
+  ctx.fillRect(0, 0, W, Hh);
 }
 
 /* ═══════════════════════════════════════════
-   COUNTDOWN + CAPTURE
+   OPEN / CLOSE CAMERA
+═══════════════════════════════════════════ */
+document.getElementById('captureMood').addEventListener('click', openCamera);
+
+function openCamera() {
+  overlay.classList.add('active');
+  showLoadingAndStart();
+}
+
+function showLoadingAndStart() {
+  // Reset UI state
+  isCaptured     = false;
+  isCountingDown = false;
+  capturedDataURL = null;
+  captureBtn.disabled    = false;
+  captureBtn.textContent = 'Capture';
+  retakeBtn.classList.remove('show');
+  downloadBtn.classList.remove('show');
+  clearCountdown();
+
+  // Clear canvas, show spinner
+  const ctx = canvas.getContext('2d');
+  canvas.width = 640; canvas.height = 480;
+  ctx.clearRect(0, 0, 640, 480);
+  camLoading.classList.remove('hide');
+
+  // Start stream (segmentation instance stays alive)
+  startStream();
+}
+
+document.getElementById('closeCam').addEventListener('click', closeCamera);
+
+function closeCamera() {
+  clearCountdown();
+  stopStream();
+  overlay.classList.remove('active');
+  isCaptured      = false;
+  isCountingDown  = false;
+  capturedDataURL = null;
+  captureBtn.disabled    = false;
+  captureBtn.textContent = 'Capture';
+  retakeBtn.classList.remove('show');
+  downloadBtn.classList.remove('show');
+  timerDisp.classList.remove('show');
+}
+
+/* ═══════════════════════════════════════════
+   COUNTDOWN + FREEZE
 ═══════════════════════════════════════════ */
 captureBtn.addEventListener('click', () => {
   if (isCountingDown || isCaptured) return;
@@ -370,7 +387,6 @@ captureBtn.addEventListener('click', () => {
 function startCountdown() {
   isCountingDown = true;
   captureBtn.disabled = true;
-
   let count = 5;
   timerDisp.textContent = count;
   timerDisp.classList.add('show');
@@ -387,10 +403,7 @@ function startCountdown() {
 }
 
 function clearCountdown() {
-  if (countdownId) {
-    clearInterval(countdownId);
-    countdownId = null;
-  }
+  if (countdownId) { clearInterval(countdownId); countdownId = null; }
   isCountingDown = false;
   timerDisp.classList.remove('show');
 }
@@ -398,19 +411,17 @@ function clearCountdown() {
 function freeze() {
   isCaptured = true;
 
-  // Stop camera BEFORE taking the screenshot so segmentation
-  // can't overwrite the canvas after toDataURL is called.
-  stopCamera();
+  // Stop the stream so no more frames overwrite the canvas
+  stopStream();
 
   capturedDataURL = canvas.toDataURL('image/png');
 
-  // Redraw the frozen frame cleanly
+  // Redraw frozen frame cleanly
   const img = new Image();
   img.onload = () => {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-    // Show post-capture controls
     retakeBtn.classList.add('show');
     downloadBtn.classList.add('show');
     showToast('Captured — save or retake');
@@ -422,10 +433,7 @@ function freeze() {
    RETAKE
 ═══════════════════════════════════════════ */
 retakeBtn.addEventListener('click', () => {
-  // Show loading immediately — before canvas is cleared — so user never sees black
-  camLoading.classList.remove('hide');
-  resetCamState();
-  setTimeout(startCamera, 80);
+  showLoadingAndStart();
 });
 
 /* ═══════════════════════════════════════════
@@ -440,40 +448,17 @@ downloadBtn.addEventListener('click', () => {
 });
 
 /* ═══════════════════════════════════════════
-   CLOSE CAMERA
+   ESCAPE KEY
 ═══════════════════════════════════════════ */
-document.getElementById('closeCam').addEventListener('click', closeCamera);
-
-function closeCamera() {
-  clearCountdown();
-  stopCamera();
-  overlay.classList.remove('active');
-  // Full reset so next open is clean
-  isCaptured      = false;
-  isCountingDown  = false;
-  capturedDataURL = null;
-  captureBtn.disabled = false;
-  captureBtn.textContent = 'Capture';
-  retakeBtn.classList.remove('show');
-  downloadBtn.classList.remove('show');
-  timerDisp.classList.remove('show');
-}
-
-/* ─── Background "None" chip ─────────────── */
-noBgBtn.addEventListener('click', () => {
-  document.querySelectorAll('#gallery img.selected, #camGallery img.selected')
-    .forEach(x => x.classList.remove('selected'));
-  noBgBtn.classList.add('selected');
-  selectedBgImage = null;
-});
-
-/* ─── Escape key ─────────────────────────── */
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (overlay.classList.contains('active')) closeCamera();
   else panel.classList.remove('active');
 });
 
-/* ─── Init ───────────────────────────────── */
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
 syncUI();
 loadGallery();
+initSegmentation(); // create the one instance, keep it forever
