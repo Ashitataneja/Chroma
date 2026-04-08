@@ -224,27 +224,28 @@ function makeThumb(img, type) {
 document.getElementById('captureMood').addEventListener('click', openCamera);
 
 function openCamera() {
-  resetCamState();
+  // Show loading FIRST so the user sees the spinner, not a black flash
   overlay.classList.add('active');
   camLoading.classList.remove('hide');
-  setTimeout(startCamera, 60);
+  resetCamState();
+  setTimeout(startCamera, 80);
 }
 
 function resetCamState() {
-  // Stop any running capture sequence
+  // Kill any running stream first
+  stopCamera();
   clearCountdown();
-  isCaptured     = false;
-  isCountingDown = false;
+  isCaptured      = false;
+  isCountingDown  = false;
   capturedDataURL = null;
 
-  // Reset buttons
-  captureBtn.disabled = false;
+  captureBtn.disabled    = false;
   captureBtn.textContent = 'Capture';
   retakeBtn.classList.remove('show');
   downloadBtn.classList.remove('show');
   timerDisp.classList.remove('show');
 
-  // Blank the canvas completely
+  // Clear canvas to transparent (loading screen covers it anyway)
   const ctx = canvas.getContext('2d');
   canvas.width  = 640;
   canvas.height = 480;
@@ -276,10 +277,6 @@ function startCamera() {
   });
 
   mpCamera.start()
-    .then(() => {
-      // Hide loading screen after camera boots
-      setTimeout(() => camLoading.classList.add('hide'), 600);
-    })
     .catch(err => {
       showToast('Camera access denied.');
       overlay.classList.remove('active');
@@ -307,6 +304,11 @@ function stopCamera() {
 ═══════════════════════════════════════════ */
 function onFrame(results) {
   if (isCaptured) return;
+
+  // Hide loading screen the moment the first real frame arrives
+  if (!camLoading.classList.contains('hide')) {
+    camLoading.classList.add('hide');
+  }
 
   const W = results.image.width;
   const H_px = results.image.height;
@@ -420,9 +422,10 @@ function freeze() {
    RETAKE
 ═══════════════════════════════════════════ */
 retakeBtn.addEventListener('click', () => {
-  resetCamState();
+  // Show loading immediately — before canvas is cleared — so user never sees black
   camLoading.classList.remove('hide');
-  setTimeout(startCamera, 60);
+  resetCamState();
+  setTimeout(startCamera, 80);
 });
 
 /* ═══════════════════════════════════════════
