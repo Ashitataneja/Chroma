@@ -3,554 +3,649 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chroma — Mood Photography</title>
+<title>Chroma</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --panel-w: 380px;
-    --radius: 14px;
-    --easing: cubic-bezier(0.22, 1, 0.36, 1);
-    --font-display: 'Cormorant Garamond', Georgia, serif;
-    --font-body: 'Jost', sans-serif;
-  }
+:root {
+  --panel-w: 370px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans: 'Jost', sans-serif;
+  --ink: #111;
+  --ink2: #555;
+  --ink3: #999;
+  --line: #ebebeb;
+  --bg: #fafafa;
+}
 
-  html, body {
-    width: 100%; height: 100%;
-    overflow: hidden;
-    font-family: var(--font-body);
-    background: #0a0a0a;
-    cursor: crosshair;
-  }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: var(--sans);
+  background: #080808;
+  cursor: crosshair;
+}
 
-  /* ── GRID ─────────────────────────────── */
-  #grid {
-    display: grid;
-    grid-template-columns: repeat(35, 1fr);
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-    z-index: 1;
-  }
+/* ═══ GRID */
+#grid {
+  display: grid;
+  grid-template-columns: repeat(35, 1fr);
+  width: 100vw;
+  height: 100vh;
+}
+.cell {
+  width: 100%;
+  aspect-ratio: 1;
+  cursor: pointer;
+  transition: transform 0.13s var(--ease), filter 0.13s;
+  position: relative; z-index: 1;
+}
+.cell:hover {
+  transform: scale(1.7);
+  z-index: 9;
+  filter: brightness(1.3) saturate(1.15);
+}
 
-  .cell {
-    width: 100%;
-    aspect-ratio: 1;
-    transition: transform 0.15s var(--easing), filter 0.15s;
-    cursor: pointer;
-    position: relative;
-  }
+/* ═══ SIDE PANEL */
+#panel {
+  position: fixed;
+  right: 0; top: 0;
+  width: var(--panel-w);
+  height: 100%;
+  background: var(--bg);
+  transform: translateX(100%);
+  transition: transform 0.48s var(--ease);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  box-shadow: -20px 0 80px rgba(0,0,0,0.2);
+}
+#panel.active { transform: translateX(0); }
 
-  .cell:hover {
-    transform: scale(1.6);
-    z-index: 5;
-    filter: brightness(1.25);
-  }
+#panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #ddd transparent;
+}
+#panel-scroll::-webkit-scrollbar { width: 3px; }
+#panel-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
-  /* ── PANEL ────────────────────────────── */
-  #panel {
-    position: fixed;
-    right: 0; top: 0;
-    width: var(--panel-w);
-    height: 100%;
-    background: #ffffff;
-    transform: translateX(100%);
-    transition: transform 0.5s var(--easing);
-    display: flex;
-    flex-direction: column;
-    z-index: 100;
-    box-shadow: -20px 0 80px rgba(0,0,0,0.25);
-  }
+/* panel top */
+#panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 0;
+}
+#panel-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 21px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+#back {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  transition: color 0.18s;
+  user-select: none;
+}
+#back:hover { color: var(--ink); }
+#back svg { transition: transform 0.18s var(--ease); }
+#back:hover svg { transform: translateX(-2px); }
 
-  #panel.active { transform: translateX(0); }
+/* swatch */
+#swatch-wrap { margin: 14px 20px 0; }
+#swatch {
+  width: 100%; height: 96px;
+  border-radius: 11px;
+  transition: background 0.32s;
+  position: relative; overflow: hidden;
+}
+#swatch::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(145deg, rgba(255,255,255,0.2) 0%, transparent 55%);
+  border-radius: 11px;
+}
+#swatch-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 7px;
+  padding: 0 1px;
+}
+#color-name {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink);
+}
+#color-hex {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--ink3);
+}
 
-  /* panel scrollable content */
-  #panel-scroll {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: #ddd transparent;
-  }
-  #panel-scroll::-webkit-scrollbar { width: 4px; }
-  #panel-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+/* sliders */
+#sliders {
+  padding: 16px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sl-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.sl-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink2);
+}
+.sl-num {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--ink3);
+}
 
-  /* back button */
-  #back {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 20px 22px 0;
-    cursor: pointer;
-    font-family: var(--font-body);
-    font-size: 11px;
-    font-weight: 500;
-    color: #999;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    transition: color 0.2s;
-    user-select: none;
-  }
-  #back:hover { color: #000; }
-  #back svg { transition: transform 0.2s var(--easing); }
-  #back:hover svg { transform: translateX(-3px); }
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%; height: 3px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2.5px solid var(--bg);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+  cursor: pointer;
+  transition: transform 0.14s var(--ease);
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type=range]::-moz-range-thumb {
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2.5px solid var(--bg);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+}
 
-  /* color preview swatch */
-  #preview-wrap {
-    margin: 14px 22px 0;
-    position: relative;
-  }
+/* divider */
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin: 16px 20px 0;
+}
 
-  #preview {
-    width: 100%;
-    height: 110px;
-    border-radius: var(--radius);
-    transition: background 0.3s;
-    position: relative;
-    overflow: hidden;
-  }
+/* gallery */
+.gallery-label {
+  padding: 13px 20px 9px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink3);
+}
+#gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 0 20px;
+}
+#gallery img {
+  width: 100%; height: 82px;
+  object-fit: cover;
+  border-radius: 7px;
+  cursor: pointer;
+  opacity: 0;
+  animation: fadeUp 0.36s var(--ease) forwards;
+  transition: transform 0.18s var(--ease), box-shadow 0.18s;
+}
+#gallery img:hover {
+  transform: scale(1.04);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.16);
+}
+#gallery img.selected {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 2px;
+}
+.img-skel {
+  width: 100%; height: 82px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #ededed 25%, #e3e3e3 50%, #ededed 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-  #preview::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 60%);
-    border-radius: var(--radius);
-    pointer-events: none;
-  }
+/* panel bottom */
+#panel-bottom {
+  padding: 13px 20px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+#captureMood {
+  width: 100%;
+  padding: 13px 0;
+  background: var(--ink);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background 0.18s, transform 0.14s var(--ease);
+}
+#captureMood:hover { background: #2a2a2a; transform: translateY(-1px); }
+#captureMood:active { transform: translateY(0); }
 
-  #color-label {
-    font-family: var(--font-display);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #aaa;
-    margin-top: 8px;
-    text-align: right;
-    padding-right: 2px;
-    transition: color 0.3s;
-  }
+/* ═══ CAMERA OVERLAY */
+#overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+}
+#overlay.active { display: flex; }
 
-  /* sliders section */
-  #sliders {
-    padding: 6px 22px 0;
-  }
+#modal {
+  width: min(400px, 94vw);
+  height: min(700px, 92vh);
+  background: #0d0d0d;
+  border-radius: 22px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
+  animation: modalIn 0.38s var(--ease);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
 
-  .slider-row {
-    margin-bottom: 14px;
-  }
+/* cam view */
+#cam-view {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
 
-  .slider-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-  }
+video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0; /* always hidden — canvas is the display */
+  pointer-events: none;
+}
 
-  .slider-label {
-    font-family: var(--font-body);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #555;
-  }
+canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
 
-  .slider-val {
-    font-family: var(--font-body);
-    font-size: 11px;
-    color: #aaa;
-    font-weight: 300;
-  }
+/* modal top bar */
+#cam-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.52), transparent);
+  z-index: 10;
+}
+#cam-label {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: rgba(255,255,255,0.8);
+}
+#closeCam {
+  width: 30px; height: 30px;
+  border: none; border-radius: 50%;
+  background: rgba(255,255,255,0.13);
+  backdrop-filter: blur(8px);
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.18s;
+  font-family: var(--sans);
+}
+#closeCam:hover { background: rgba(255,255,255,0.26); }
 
-  input[type=range] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 4px;
-    border-radius: 2px;
-    background: #eee;
-    outline: none;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
+/* countdown */
+#timer-display {
+  position: absolute; inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 148px;
+  font-weight: 400;
+  color: white;
+  text-shadow: 0 2px 36px rgba(0,0,0,0.45);
+  pointer-events: none;
+  z-index: 8;
+  opacity: 0;
+  transition: opacity 0.18s;
+  line-height: 1;
+}
+#timer-display.show { opacity: 1; }
 
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    background: #111;
-    border: 3px solid white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    cursor: pointer;
-    transition: transform 0.15s var(--easing);
-  }
-  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-  input[type=range]::-moz-range-thumb {
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    background: #111;
-    border: 3px solid white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    cursor: pointer;
-  }
+/* bg selector strip */
+#camGallery {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 0;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 0 14px;
+  background: linear-gradient(to top, rgba(0,0,0,0.65) 60%, transparent);
+  scrollbar-width: none;
+  z-index: 6;
+}
+#camGallery::-webkit-scrollbar { display: none; }
 
-  /* section headings */
-  .section-head {
-    font-family: var(--font-body);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #bbb;
-    padding: 18px 22px 10px;
-    border-top: 1px solid #f0f0f0;
-  }
+#noBgBtn {
+  flex-shrink: 0;
+  width: 52px; height: 52px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.28);
+  background: rgba(0,0,0,0.35);
+  color: rgba(255,255,255,0.65);
+  font-family: var(--sans);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.18s, background 0.18s;
+}
+#noBgBtn:hover, #noBgBtn.selected {
+  border-color: white;
+  background: rgba(255,255,255,0.15);
+}
+#camGallery img {
+  width: 52px; height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.18s, transform 0.18s var(--ease);
+}
+#camGallery img:hover { transform: scale(1.08); }
+#camGallery img.selected { border-color: white; }
 
-  /* gallery grid */
-  #gallery {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
-    padding: 0 22px;
-  }
+/* cam loading screen */
+#cam-loading {
+  position: absolute; inset: 0;
+  background: #0d0d0d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 20;
+  transition: opacity 0.4s;
+}
+#cam-loading.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-top-color: rgba(255,255,255,0.6);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#cam-loading p {
+  font-size: 10px;
+  font-weight: 300;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.38);
+}
 
-  #gallery img {
-    width: 100%;
-    height: 88px;
-    object-fit: cover;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: transform 0.2s var(--easing), box-shadow 0.2s, opacity 0.15s;
-    opacity: 0;
-    animation: fadeUp 0.4s var(--easing) forwards;
-  }
+/* bottom controls bar */
+#cam-controls {
+  flex-shrink: 0;
+  height: 76px;
+  background: #111;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 20px;
+}
+#captureBtn {
+  flex: 1;
+  max-width: 200px;
+  height: 44px;
+  border: none;
+  border-radius: 24px;
+  background: white;
+  color: #111;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.14s var(--ease), opacity 0.14s;
+}
+#captureBtn:hover:not(:disabled) { transform: scale(1.04); }
+#captureBtn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
 
-  #gallery img:hover {
-    transform: scale(1.04);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-  }
+.cam-icon-btn {
+  width: 44px; height: 44px;
+  border: none; border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, transform 0.14s;
+  flex-shrink: 0;
+}
+.cam-icon-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.08); }
+.cam-icon-btn.show { display: flex; }
 
-  #gallery img.selected {
-    outline: 3px solid #111;
-    outline-offset: 2px;
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* bottom capture button */
-  #bottom {
-    padding: 14px 22px 20px;
-    border-top: 1px solid #f0f0f0;
-    background: white;
-    flex-shrink: 0;
-  }
-
-  #captureMood {
-    width: 100%;
-    padding: 14px;
-    background: #111;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-family: var(--font-body);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.15s var(--easing);
-  }
-  #captureMood:hover {
-    background: #333;
-    transform: translateY(-1px);
-  }
-  #captureMood:active { transform: translateY(0); }
-
-  /* ── CAMERA OVERLAY ───────────────────── */
-  #overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(6px);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 200;
-    animation: overlayIn 0.3s var(--easing);
-  }
-
-  @keyframes overlayIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-
-  #overlay.active { display: flex; }
-
-  #modal {
-    width: min(420px, 95vw);
-    height: min(680px, 90vh);
-    background: #0a0a0a;
-    border-radius: 20px;
-    overflow: hidden;
-    position: relative;
-    box-shadow: 0 40px 120px rgba(0,0,0,0.6);
-    animation: modalIn 0.4s var(--easing);
-  }
-
-  @keyframes modalIn {
-    from { opacity: 0; transform: scale(0.9) translateY(20px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
-  }
-
-  video, canvas {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  /* flip the live view for mirror effect */
-  video { transform: scaleX(-1); }
-
-  /* close btn */
-  #closeCam {
-    position: absolute;
-    top: 14px; right: 14px;
-    width: 34px; height: 34px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(8px);
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    z-index: 10;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.2s;
-    font-family: var(--font-body);
-  }
-  #closeCam:hover { background: rgba(255,255,255,0.3); }
-
-  /* cam gallery strip */
-  #camGallery {
-    position: absolute;
-    bottom: 80px;
-    left: 0; right: 0;
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding: 8px 12px;
-    scrollbar-width: none;
-    z-index: 5;
-  }
-  #camGallery::-webkit-scrollbar { display: none; }
-
-  #camGallery img {
-    width: 58px; height: 58px;
-    border-radius: 10px;
-    object-fit: cover;
-    flex-shrink: 0;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: border-color 0.2s, transform 0.2s var(--easing);
-  }
-  #camGallery img:hover { transform: scale(1.08); }
-  #camGallery img.selected { border-color: white; }
-
-  /* controls bar */
-  #controls {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 72px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 0 18px;
-    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
-    z-index: 5;
-  }
-
-  #captureBtn {
-    flex: 1;
-    max-width: 200px;
-    height: 48px;
-    border: none;
-    border-radius: 28px;
-    background: white;
-    color: #111;
-    font-family: var(--font-body);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: transform 0.15s var(--easing), background 0.2s;
-  }
-  #captureBtn:hover { transform: scale(1.04); }
-  #captureBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  #download {
-    width: 48px; height: 48px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(8px);
-    cursor: pointer;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s, transform 0.15s;
-  }
-  #download:hover { background: rgba(255,255,255,0.3); transform: scale(1.08); }
-  #download.visible { display: flex; }
-
-  /* timer overlay on canvas */
-  #timer-display {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-display);
-    font-size: 160px;
-    font-weight: 400;
-    color: white;
-    text-shadow: 0 4px 40px rgba(0,0,0,0.4);
-    pointer-events: none;
-    z-index: 6;
-    opacity: 0;
-    transition: opacity 0.15s;
-    line-height: 1;
-  }
-  #timer-display.visible { opacity: 1; }
-
-  /* loading state for gallery */
-  .img-skeleton {
-    width: 100%; height: 88px;
-    border-radius: 8px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.2s infinite;
-  }
-
-  @keyframes shimmer {
-    from { background-position: 200% 0; }
-    to   { background-position: -200% 0; }
-  }
-
-  /* notification toast */
-  #toast {
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: #111;
-    color: white;
-    padding: 10px 22px;
-    border-radius: 30px;
-    font-family: var(--font-body);
-    font-size: 13px;
-    font-weight: 500;
-    z-index: 999;
-    transition: transform 0.4s var(--easing), opacity 0.4s;
-    opacity: 0;
-    pointer-events: none;
-    white-space: nowrap;
-  }
-  #toast.show {
-    transform: translateX(-50%) translateY(0);
-    opacity: 1;
-  }
-
+/* ═══ TOAST */
+#toast {
+  position: fixed;
+  bottom: 26px; left: 50%;
+  transform: translateX(-50%) translateY(55px);
+  background: rgba(8,8,8,0.9);
+  backdrop-filter: blur(12px);
+  color: white;
+  padding: 9px 20px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+  z-index: 999;
+  transition: transform 0.36s var(--ease), opacity 0.36s;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
 </style>
 </head>
 <body>
 
-<!-- PIXEL GRID -->
 <div id="grid"></div>
 
-<!-- SIDE PANEL -->
 <div id="panel">
   <div id="panel-scroll">
 
-    <div id="back">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M9 2L4 7l5 5" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      Close
+    <div id="panel-top">
+      <div id="panel-title">Chroma</div>
+      <div id="back">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <path d="M8 2L4 6l4 4" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back
+      </div>
     </div>
 
-    <div id="preview-wrap">
-      <div id="preview"></div>
-      <div id="color-label">–</div>
+    <div id="swatch-wrap">
+      <div id="swatch"></div>
+      <div id="swatch-meta">
+        <span id="color-name">—</span>
+        <span id="color-hex"></span>
+      </div>
     </div>
 
     <div id="sliders">
-      <div class="slider-row">
-        <div class="slider-header">
-          <span class="slider-label">Hue</span>
-          <span class="slider-val" id="hueVal">–</span>
+      <div>
+        <div class="sl-head">
+          <span class="sl-label">Hue</span>
+          <span class="sl-num" id="hueVal">—</span>
         </div>
         <input type="range" id="hue" min="0" max="360" value="200">
       </div>
-      <div class="slider-row">
-        <div class="slider-header">
-          <span class="slider-label">Saturation</span>
-          <span class="slider-val" id="satVal">–</span>
+      <div>
+        <div class="sl-head">
+          <span class="sl-label">Saturation</span>
+          <span class="sl-num" id="satVal">—</span>
         </div>
         <input type="range" id="sat" min="0" max="100" value="70">
       </div>
-      <div class="slider-row">
-        <div class="slider-header">
-          <span class="slider-label">Vibrance</span>
-          <span class="slider-val" id="vibVal">–</span>
+      <div>
+        <div class="sl-head">
+          <span class="sl-label">Vibrance</span>
+          <span class="sl-num" id="vibVal">—</span>
         </div>
         <input type="range" id="vib" min="0" max="100" value="50">
       </div>
     </div>
 
-    <div class="section-head">Mood Inspiration</div>
+    <div class="divider"></div>
+    <div class="gallery-label">Mood Inspiration</div>
     <div id="gallery"></div>
+    <div style="height:10px"></div>
 
-    <div style="height:16px;"></div>
   </div>
 
-  <div id="bottom">
-    <button id="captureMood">↗ Capture Mood</button>
+  <div id="panel-bottom">
+    <button id="captureMood">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="3.5" stroke="white" stroke-width="2"/>
+        <path d="M3 9V7a2 2 0 012-2h2l2-2h6l2 2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+          stroke="white" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+      Capture Mood
+    </button>
   </div>
 </div>
 
-<!-- CAMERA MODAL -->
+<!-- CAMERA -->
 <div id="overlay">
   <div id="modal">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="canvas"></canvas>
-    <div id="timer-display"></div>
-    <button id="closeCam" title="Close">✕</button>
-    <div id="camGallery"></div>
-    <div id="controls">
-      <button id="captureBtn">Capture</button>
-      <button id="download" title="Download">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M12 3v13M12 16l-4-4m4 4l4-4M4 20h16"
-            stroke="white" stroke-width="2"
+    <div id="cam-view">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div id="timer-display"></div>
+
+      <div id="cam-topbar">
+        <span id="cam-label">Mood Capture</span>
+        <button id="closeCam">✕</button>
+      </div>
+
+      <div id="cam-loading">
+        <div class="spinner"></div>
+        <p>Starting camera</p>
+      </div>
+
+      <div id="camGallery">
+        <button id="noBgBtn" class="selected">None</button>
+      </div>
+    </div>
+
+    <div id="cam-controls">
+      <button class="cam-icon-btn" id="retakeBtn" title="Retake">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+          <path d="M3 12a9 9 0 109-9 9 9 0 00-6.36 2.64L3 8"
+            stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 3v5h5" stroke="white" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button id="captureBtn">Capture</button>
+      <button class="cam-icon-btn" id="downloadBtn" title="Save">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16"
+            stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
