@@ -1,12 +1,13 @@
 /* ═══════════════════════════════════════════
-   Chroma — script.js
+   Chroma  ·  script.js
    ═══════════════════════════════════════════ */
 
-/* ── DOM refs ─────────────────────────────── */
+/* ─── DOM ───────────────────────────────── */
 const grid        = document.getElementById('grid');
 const panel       = document.getElementById('panel');
-const preview     = document.getElementById('preview');
-const colorLabel  = document.getElementById('color-label');
+const swatch      = document.getElementById('swatch');
+const colorName   = document.getElementById('color-name');
+const colorHex    = document.getElementById('color-hex');
 
 const hueSlider   = document.getElementById('hue');
 const satSlider   = document.getElementById('sat');
@@ -22,33 +23,41 @@ const overlay     = document.getElementById('overlay');
 const video       = document.getElementById('video');
 const canvas      = document.getElementById('canvas');
 const timerDisp   = document.getElementById('timer-display');
+const camLoading  = document.getElementById('cam-loading');
 
 const captureBtn  = document.getElementById('captureBtn');
-const downloadBtn = document.getElementById('download');
+const retakeBtn   = document.getElementById('retakeBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const noBgBtn     = document.getElementById('noBgBtn');
 const toast       = document.getElementById('toast');
 
-/* ── State ────────────────────────────────── */
-let currentH = 200, currentS = 70, currentV = 50;
-let selectedImage = null;
+/* ─── State ─────────────────────────────── */
+let H = 200, S = 70, V = 50;
+let selectedBgImage = null;   // HTMLImageElement chosen as background
 let capturedDataURL = null;
-let isCaptured = false;
-let isTimerRunning = false;
+let isCaptured      = false;
+let isCountingDown  = false;
 
-let segmentation = null;
-let mpCamera     = null;
+let segmentation  = null;
+let mpCamera      = null;
+let countdownId   = null;
 
-/* ══════════════════════════════════════════
-   TOAST
-══════════════════════════════════════════ */
-function showToast(msg, duration = 2200) {
+/* Secondary off-screen canvas — created once, reused every frame.
+   This is key: OffscreenCanvas can silently fail on re-init in some
+   browsers. A regular <canvas> not in the DOM is perfectly reliable. */
+const offCanvas = document.createElement('canvas');
+const offCtx    = offCanvas.getContext('2d');
+
+/* ─── Toast ─────────────────────────────── */
+let toastTimer = null;
+function showToast(msg, ms = 2400) {
+  clearTimeout(toastTimer);
   toast.textContent = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), duration);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
 }
 
-/* ══════════════════════════════════════════
-   COLOUR HELPERS
-══════════════════════════════════════════ */
+/* ─── Colour helpers ─────────────────────── */
 function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const k = n => (n + h / 30) % 12;
@@ -58,401 +67,410 @@ function hslToHex(h, s, l) {
     .map(x => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
 }
 
-function hueLabel(h) {
-  const names = [
-    [15,  'Red'], [45, 'Orange'], [65, 'Yellow'],
-    [150, 'Green'], [195, 'Cyan'], [255, 'Blue'],
-    [285, 'Indigo'], [345, 'Purple'], [360, 'Red']
-  ];
-  for (const [max, name] of names) if (h <= max) return name;
+function colorLabel(h) {
+  if (h <  15) return 'Red';
+  if (h <  45) return 'Orange';
+  if (h <  65) return 'Yellow';
+  if (h < 150) return 'Green';
+  if (h < 195) return 'Cyan';
+  if (h < 255) return 'Blue';
+  if (h < 285) return 'Indigo';
+  if (h < 345) return 'Violet';
   return 'Red';
 }
 
-/* ══════════════════════════════════════════
-   BUILD GRID
-══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   GRID
+═══════════════════════════════════════════ */
 (function buildGrid() {
-  const COLS = 35;
-  const CELLS = COLS * Math.ceil(window.innerHeight / (window.innerWidth / COLS));
-  const fragment = document.createDocumentFragment();
+  const COLS  = 35;
+  const rows  = Math.ceil(window.innerHeight / (window.innerWidth / COLS));
+  const frag  = document.createDocumentFragment();
 
-  for (let i = 0; i < CELLS; i++) {
+  for (let i = 0; i < COLS * rows; i++) {
     const h = Math.random() * 360;
     const s = 35 + Math.random() * 65;
     const l = 25 + Math.random() * 50;
 
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.style.background = `hsl(${h},${s}%,${l}%)`;
+    const el = document.createElement('div');
+    el.className = 'cell';
+    el.style.background = `hsl(${h},${s}%,${l}%)`;
 
-    cell.addEventListener('click', () => {
-      currentH = h;
-      currentS = s;
-      currentV = 50;
-
+    el.addEventListener('click', () => {
+      H = h; S = s; V = 50;
       hueSlider.value = h;
       satSlider.value = s;
       vibSlider.value = 50;
-
-      syncSliderDisplay();
-      updatePreview();
-      loadGalleryImages();
+      syncUI();
+      loadGallery();
       panel.classList.add('active');
     });
 
-    fragment.appendChild(cell);
+    frag.appendChild(el);
   }
-  grid.appendChild(fragment);
+  grid.appendChild(frag);
 })();
 
-/* ══════════════════════════════════════════
-   PREVIEW + SLIDER VALUES
-══════════════════════════════════════════ */
-function updatePreview() {
-  preview.style.background = `hsl(${currentH},${currentS}%,50%)`;
-  const hex = hslToHex(currentH, currentS, 50);
-  colorLabel.textContent = `${hueLabel(currentH)}  ${hex.toUpperCase()}`;
-  colorLabel.style.color = '#888';
+/* ═══════════════════════════════════════════
+   PANEL — preview + sliders
+═══════════════════════════════════════════ */
+function syncUI() {
+  const hex = hslToHex(H, S, 50);
+  swatch.style.background = `hsl(${H},${S}%,50%)`;
+  colorName.textContent = colorLabel(H);
+  colorHex.textContent  = hex.toUpperCase();
 
-  // tint the range track to match current hue
+  hueVal.textContent = Math.round(H) + '°';
+  satVal.textContent = Math.round(S) + '%';
+  vibVal.textContent = Math.round(V) + '%';
+
   hueSlider.style.background =
-    `linear-gradient(to right, hsl(0,80%,50%), hsl(60,80%,50%), hsl(120,80%,50%), hsl(180,80%,50%), hsl(240,80%,50%), hsl(300,80%,50%), hsl(360,80%,50%))`;
+    'linear-gradient(to right,hsl(0,80%,50%),hsl(60,80%,50%),hsl(120,80%,50%),hsl(180,80%,50%),hsl(240,80%,50%),hsl(300,80%,50%),hsl(360,80%,50%))';
   satSlider.style.background =
-    `linear-gradient(to right, hsl(${currentH},0%,50%), hsl(${currentH},100%,50%))`;
+    `linear-gradient(to right,hsl(${H},0%,50%),hsl(${H},100%,50%))`;
   vibSlider.style.background =
-    `linear-gradient(to right, #eee, hsl(${currentH},${currentS}%,50%))`;
+    `linear-gradient(to right,#e8e8e8,hsl(${H},${S}%,50%))`;
 }
 
-function syncSliderDisplay() {
-  hueVal.textContent = Math.round(currentH) + '°';
-  satVal.textContent = Math.round(currentS) + '%';
-  vibVal.textContent = Math.round(currentV) + '%';
-}
-
-/* ── Slider events ─────────────────────── */
 [hueSlider, satSlider, vibSlider].forEach(sl => {
   sl.addEventListener('input', () => {
-    currentH = parseFloat(hueSlider.value);
-    currentS = parseFloat(satSlider.value);
-    currentV = parseFloat(vibSlider.value);
-    syncSliderDisplay();
-    updatePreview();
-    // Debounce gallery reload
+    H = +hueSlider.value;
+    S = +satSlider.value;
+    V = +vibSlider.value;
+    syncUI();
     clearTimeout(sl._t);
-    sl._t = setTimeout(loadGalleryImages, 600);
+    sl._t = setTimeout(loadGallery, 700);
   });
 });
 
-/* ── Back button ───────────────────────── */
-document.getElementById('back').addEventListener('click', () => {
-  panel.classList.remove('active');
-});
+document.getElementById('back').addEventListener('click', () =>
+  panel.classList.remove('active'));
 
-/* ══════════════════════════════════════════
-   GALLERY IMAGES (Picsum + color filter)
-══════════════════════════════════════════ */
-let galleryAbort = null;
+/* ═══════════════════════════════════════════
+   GALLERY
+═══════════════════════════════════════════ */
+let loadToken = 0;
 
-function loadGalleryImages() {
-  // Cancel any pending previous load
-  if (galleryAbort) galleryAbort = true;
-  const thisLoad = {};
-  galleryAbort = thisLoad;
-
-  gallery.innerHTML = '';
+function loadGallery() {
+  const token = ++loadToken;
+  gallery.innerHTML    = '';
   camGallery.innerHTML = '';
-  selectedImage = null;
+  selectedBgImage      = null;
+
+  // Re-add the "None" chip
+  camGallery.appendChild(noBgBtn);
+  noBgBtn.classList.add('selected');
 
   const COUNT = 12;
-  const seeds = Array.from({ length: COUNT }, () => Math.floor(Math.random() * 1000));
+  const seeds = Array.from({ length: COUNT }, () =>
+    Math.floor(Math.random() * 9000) + 1000);
 
+  // Skeletons
   for (let i = 0; i < COUNT; i++) {
-    // skeleton placeholders
-    const sk  = document.createElement('div');
-    sk.className = 'img-skeleton';
-    sk.style.animationDelay = i * 0.05 + 's';
-    gallery.appendChild(sk);
-
-    const sk2 = document.createElement('div');
-    sk2.className = 'img-skeleton';
-    camGallery.appendChild(sk2);
+    const sk  = skeletonEl(); gallery.appendChild(sk);
+    const sk2 = skeletonEl(); camGallery.appendChild(sk2);
   }
-
-  let loaded = 0;
 
   seeds.forEach((seed, i) => {
     const url = `https://picsum.photos/seed/${seed}/400/300`;
 
-    /* ── main gallery ── */
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    img.onload = () => {
-      if (thisLoad !== galleryAbort && galleryAbort !== true) {
-        // another load started — skip
-      }
-      const sk = gallery.children[i];
-      if (sk && sk.classList.contains('img-skeleton')) {
-        sk.replaceWith(createGalleryImg(img, url, 'main', i));
-      }
-      loaded++;
-    };
-
-    img.onerror = () => {
-      const sk = gallery.children[i];
-      if (sk) sk.remove();
-    };
-
-    img.src = url;
-
-    /* ── cam gallery strip ── */
-    const img2 = new Image();
-    img2.crossOrigin = 'anonymous';
-
-    img2.onload = () => {
-      const sk = camGallery.children[i];
-      if (sk && sk.classList.contains('img-skeleton')) {
-        sk.replaceWith(createGalleryImg(img2, url, 'cam', i));
-      }
-    };
-
-    img2.onerror = () => {
-      const sk = camGallery.children[i];
-      if (sk) sk.remove();
-    };
-
-    img2.src = url;
+    loadImg(url, img => {
+      if (token !== loadToken) return; // stale load
+      replaceChild(gallery,    i,     makeThumb(img, 'main'));
+      replaceChild(camGallery, i + 1, makeThumb(img, 'cam'));
+    });
   });
 }
 
-function createGalleryImg(imgEl, url, type, idx) {
+function skeletonEl() {
+  const d = document.createElement('div');
+  d.className = 'img-skel';
+  return d;
+}
+
+function loadImg(url, cb) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload  = () => cb(img);
+  img.onerror = () => {};
+  img.src = url;
+}
+
+function replaceChild(parent, idx, newEl) {
+  const child = parent.children[idx];
+  if (child) child.replaceWith(newEl);
+}
+
+function makeThumb(img, type) {
   const el = document.createElement('img');
-  el.src = url;
+  el.src = img.src;
   el.crossOrigin = 'anonymous';
-  el.style.animationDelay = idx * 0.04 + 's';
 
   el.addEventListener('click', () => {
-    // deselect previous
+    // Deselect all
     document.querySelectorAll('#gallery img.selected, #camGallery img.selected')
       .forEach(x => x.classList.remove('selected'));
+    noBgBtn.classList.remove('selected');
     el.classList.add('selected');
-    selectedImage = el;
+    selectedBgImage = el;
   });
 
   return el;
 }
 
-/* ══════════════════════════════════════════
-   CAMERA / MEDIAPIPE
-══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   OPEN CAMERA
+═══════════════════════════════════════════ */
 document.getElementById('captureMood').addEventListener('click', openCamera);
 
 function openCamera() {
-  // Reset state FIRST before anything starts
-  isCaptured = false;
-  capturedDataURL = null;
-  isTimerRunning = false;
-  captureBtn.disabled = false;
-  captureBtn.textContent = 'Capture';
-  downloadBtn.classList.remove('visible');
-  timerDisp.classList.remove('visible');
-
-  // Clear the canvas so old frozen frame doesn't show through
-  const ctx = canvas.getContext('2d');
-  canvas.width = 640;
-  canvas.height = 480;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+  resetCamState();
   overlay.classList.add('active');
-
-  // Small delay so overlay is visible before camera permission prompt
-  setTimeout(initSegmentation, 80);
+  camLoading.classList.remove('hide');
+  setTimeout(startCamera, 60);
 }
 
-function initSegmentation() {
-  if (segmentation) {
-    segmentation.reset();
-    segmentation = null;
-  }
-  if (mpCamera) {
-    mpCamera.stop();
-    mpCamera = null;
-  }
+function resetCamState() {
+  // Stop any running capture sequence
+  clearCountdown();
+  isCaptured     = false;
+  isCountingDown = false;
+  capturedDataURL = null;
+
+  // Reset buttons
+  captureBtn.disabled = false;
+  captureBtn.textContent = 'Capture';
+  retakeBtn.classList.remove('show');
+  downloadBtn.classList.remove('show');
+  timerDisp.classList.remove('show');
+
+  // Blank the canvas completely
+  const ctx = canvas.getContext('2d');
+  canvas.width  = 640;
+  canvas.height = 480;
+  ctx.clearRect(0, 0, 640, 480);
+}
+
+/* ═══════════════════════════════════════════
+   START CAMERA + MEDIAPIPE
+═══════════════════════════════════════════ */
+function startCamera() {
+  // Fully tear down any previous session
+  stopCamera();
 
   segmentation = new SelfieSegmentation({
-    locateFile: file =>
-      `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+    locateFile: f =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}`
   });
-
   segmentation.setOptions({ modelSelection: 1 });
-  segmentation.onResults(onSegmentationResults);
+  segmentation.onResults(onFrame);
 
   mpCamera = new Camera(video, {
     onFrame: async () => {
-      if (!isCaptured && segmentation) {
-        try {
-          await segmentation.send({ image: video });
-        } catch (e) {
-          // stream may have ended
-        }
-      }
+      if (isCaptured || !segmentation) return;
+      try { await segmentation.send({ image: video }); }
+      catch (_) {}
     },
     width: 640,
     height: 480,
   });
 
-  mpCamera.start().catch(err => {
-    showToast('Camera access denied.');
-    overlay.classList.remove('active');
-    console.error('Camera error:', err);
-  });
-}
-
-/* ══════════════════════════════════════════
-   SEGMENTATION RENDER LOOP
-══════════════════════════════════════════ */
-function onSegmentationResults(results) {
-  if (isCaptured) return;
-
-  const ctx = canvas.getContext('2d');
-  canvas.width  = results.image.width;
-  canvas.height = results.image.height;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // 1. Draw background image (or solid fill)
-  if (selectedImage && selectedImage.complete && selectedImage.naturalWidth) {
-    ctx.save();
-    ctx.drawImage(selectedImage, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
-  } else {
-    ctx.fillStyle = `hsl(${currentH}, ${currentS}%, 15%)`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  // 2. Draw person using segmentation mask
-  //    We need to: draw person pixels only where mask is white
-  const offscreen = new OffscreenCanvas(canvas.width, canvas.height);
-  const offCtx = offscreen.getContext('2d');
-
-  // Draw the camera frame
-  offCtx.drawImage(results.image, 0, 0);
-  // Use mask to cut out background (keep only person)
-  offCtx.globalCompositeOperation = 'destination-in';
-  offCtx.drawImage(results.segmentationMask, 0, 0);
-
-  // Flip the person horizontally (mirror) before compositing
-  ctx.save();
-  ctx.translate(canvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(offscreen, 0, 0);
-  ctx.restore();
-
-  // 3. Colour/mood tint overlay
-  const alpha = (currentV / 100) * 0.35; // max 35% opacity
-  ctx.fillStyle = `hsla(${currentH}, ${currentS}%, 50%, ${alpha})`;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-/* ══════════════════════════════════════════
-   CAPTURE BUTTON
-══════════════════════════════════════════ */
-captureBtn.addEventListener('click', () => {
-  if (isTimerRunning || isCaptured) return;
-  startCountdown();
-});
-
-function startCountdown() {
-  isTimerRunning = true;
-  captureBtn.disabled = true;
-
-  let count = 5;
-  timerDisp.textContent = count;
-  timerDisp.classList.add('visible');
-
-  const tick = setInterval(() => {
-    count--;
-    if (count > 0) {
-      timerDisp.textContent = count;
-    } else {
-      clearInterval(tick);
-      timerDisp.classList.remove('visible');
-      freezeCapture();
-    }
-  }, 1000);
-}
-
-function freezeCapture() {
-  isCaptured = true;
-  isTimerRunning = false;
-
-  // Stop camera IMMEDIATELY so onSegmentationResults can't overwrite the canvas
-  stopCamera();
-
-  // Grab whatever is currently on the canvas
-  capturedDataURL = canvas.toDataURL('image/png');
-
-  // Redraw cleanly
-  const img = new Image();
-  img.onload = () => {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0);
-    downloadBtn.classList.add('visible');
-    showToast('Photo captured! ↓ Download');
-  };
-  img.src = capturedDataURL;
+  mpCamera.start()
+    .then(() => {
+      // Hide loading screen after camera boots
+      setTimeout(() => camLoading.classList.add('hide'), 600);
+    })
+    .catch(err => {
+      showToast('Camera access denied.');
+      overlay.classList.remove('active');
+      console.error(err);
+    });
 }
 
 function stopCamera() {
-  if (mpCamera) { mpCamera.stop(); mpCamera = null; }
-  if (segmentation) { segmentation.reset(); segmentation = null; }
+  if (mpCamera)    { mpCamera.stop();       mpCamera    = null; }
+  if (segmentation){ segmentation.reset();  segmentation = null; }
   if (video.srcObject) {
     video.srcObject.getTracks().forEach(t => t.stop());
     video.srcObject = null;
   }
 }
 
-/* ══════════════════════════════════════════
+/* ═══════════════════════════════════════════
+   PER-FRAME RENDER
+   The correct compositing order:
+     1. Draw selected background image (stretched to canvas)
+     2. Isolate the person from the camera using the segmentation mask
+        — do this on offCanvas so we can composite cleanly
+     3. Composite person (mirrored) on top of background
+     4. Apply colour tint overlay at low opacity
+═══════════════════════════════════════════ */
+function onFrame(results) {
+  if (isCaptured) return;
+
+  const W = results.image.width;
+  const H_px = results.image.height;
+
+  // Resize both canvases once if needed
+  if (canvas.width !== W || canvas.height !== H_px) {
+    canvas.width  = W;
+    canvas.height = H_px;
+  }
+  if (offCanvas.width !== W || offCanvas.height !== H_px) {
+    offCanvas.width  = W;
+    offCanvas.height = H_px;
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H_px);
+
+  /* ── Step 1: Background ── */
+  if (selectedBgImage &&
+      selectedBgImage.complete &&
+      selectedBgImage.naturalWidth > 0) {
+    ctx.drawImage(selectedBgImage, 0, 0, W, H_px);
+  } else {
+    // Solid colour fallback based on current mood hue
+    ctx.fillStyle = `hsl(${H}, ${Math.min(S, 60)}%, 12%)`;
+    ctx.fillRect(0, 0, W, H_px);
+  }
+
+  /* ── Step 2: Isolate person on offCanvas ── */
+  offCtx.clearRect(0, 0, W, H_px);
+  // Draw raw camera frame
+  offCtx.drawImage(results.image, 0, 0, W, H_px);
+  // Multiply alpha by mask — keeps only where mask is white (person)
+  offCtx.globalCompositeOperation = 'destination-in';
+  offCtx.drawImage(results.segmentationMask, 0, 0, W, H_px);
+  offCtx.globalCompositeOperation = 'source-over'; // reset
+
+  /* ── Step 3: Composite person mirrored onto main canvas ── */
+  ctx.save();
+  ctx.translate(W, 0);
+  ctx.scale(-1, 1); // horizontal mirror
+  ctx.drawImage(offCanvas, 0, 0, W, H_px);
+  ctx.restore();
+
+  /* ── Step 4: Colour tint ── */
+  const tintAlpha = (V / 100) * 0.3; // max 30%
+  ctx.fillStyle = `hsla(${H}, ${S}%, 55%, ${tintAlpha})`;
+  ctx.fillRect(0, 0, W, H_px);
+}
+
+/* ═══════════════════════════════════════════
+   COUNTDOWN + CAPTURE
+═══════════════════════════════════════════ */
+captureBtn.addEventListener('click', () => {
+  if (isCountingDown || isCaptured) return;
+  startCountdown();
+});
+
+function startCountdown() {
+  isCountingDown = true;
+  captureBtn.disabled = true;
+
+  let count = 5;
+  timerDisp.textContent = count;
+  timerDisp.classList.add('show');
+
+  countdownId = setInterval(() => {
+    count--;
+    if (count > 0) {
+      timerDisp.textContent = count;
+    } else {
+      clearCountdown();
+      freeze();
+    }
+  }, 1000);
+}
+
+function clearCountdown() {
+  if (countdownId) {
+    clearInterval(countdownId);
+    countdownId = null;
+  }
+  isCountingDown = false;
+  timerDisp.classList.remove('show');
+}
+
+function freeze() {
+  isCaptured = true;
+
+  // Stop camera BEFORE taking the screenshot so segmentation
+  // can't overwrite the canvas after toDataURL is called.
+  stopCamera();
+
+  capturedDataURL = canvas.toDataURL('image/png');
+
+  // Redraw the frozen frame cleanly
+  const img = new Image();
+  img.onload = () => {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    // Show post-capture controls
+    retakeBtn.classList.add('show');
+    downloadBtn.classList.add('show');
+    showToast('Captured — save or retake');
+  };
+  img.src = capturedDataURL;
+}
+
+/* ═══════════════════════════════════════════
+   RETAKE
+═══════════════════════════════════════════ */
+retakeBtn.addEventListener('click', () => {
+  resetCamState();
+  camLoading.classList.remove('hide');
+  setTimeout(startCamera, 60);
+});
+
+/* ═══════════════════════════════════════════
    DOWNLOAD
-══════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 downloadBtn.addEventListener('click', () => {
   if (!capturedDataURL) return;
-  const link = document.createElement('a');
-  link.download = `chroma-${Date.now()}.png`;
-  link.href = capturedDataURL;
-  link.click();
+  const a = document.createElement('a');
+  a.download = `chroma-${Date.now()}.png`;
+  a.href = capturedDataURL;
+  a.click();
 });
 
-/* ══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CLOSE CAMERA
-══════════════════════════════════════════ */
-document.getElementById('closeCam').addEventListener('click', () => {
+═══════════════════════════════════════════ */
+document.getElementById('closeCam').addEventListener('click', closeCamera);
+
+function closeCamera() {
+  clearCountdown();
   stopCamera();
   overlay.classList.remove('active');
-  isCaptured = false;
-  isTimerRunning = false;
-  timerDisp.classList.remove('visible');
-  downloadBtn.classList.remove('visible');
+  // Full reset so next open is clean
+  isCaptured      = false;
+  isCountingDown  = false;
+  capturedDataURL = null;
   captureBtn.disabled = false;
   captureBtn.textContent = 'Capture';
+  retakeBtn.classList.remove('show');
+  downloadBtn.classList.remove('show');
+  timerDisp.classList.remove('show');
+}
+
+/* ─── Background "None" chip ─────────────── */
+noBgBtn.addEventListener('click', () => {
+  document.querySelectorAll('#gallery img.selected, #camGallery img.selected')
+    .forEach(x => x.classList.remove('selected'));
+  noBgBtn.classList.add('selected');
+  selectedBgImage = null;
 });
 
-/* ══════════════════════════════════════════
-   ESCAPE KEY to close panel / overlay
-══════════════════════════════════════════ */
+/* ─── Escape key ─────────────────────────── */
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    if (overlay.classList.contains('active')) {
-      document.getElementById('closeCam').click();
-    } else if (panel.classList.contains('active')) {
-      panel.classList.remove('active');
-    }
-  }
+  if (e.key !== 'Escape') return;
+  if (overlay.classList.contains('active')) closeCamera();
+  else panel.classList.remove('active');
 });
 
-/* ══════════════════════════════════════════
-   INIT
-══════════════════════════════════════════ */
-updatePreview();
-syncSliderDisplay();
+/* ─── Init ───────────────────────────────── */
+syncUI();
+loadGallery();
